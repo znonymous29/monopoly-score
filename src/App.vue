@@ -156,7 +156,7 @@
                     @click="undo"
                   >
                     <img
-                      src="@footage/撤销.svg"
+                      src="/footage/撤销.svg"
                       alt="撤销"
                       class="btn-icon mr-2"
                     />
@@ -169,7 +169,7 @@
                     @click="redo"
                   >
                     <img
-                      src="@footage/重做.svg"
+                      src="/footage/重做.svg"
                       alt="重做"
                       class="btn-icon mr-2"
                     />
@@ -181,7 +181,7 @@
                     @click="showRestartDialog = true"
                   >
                     <img
-                      src="@footage/重新开始.svg"
+                      src="/footage/重新开始.svg"
                       alt="重新开始"
                       class="btn-icon mr-2"
                     />
@@ -371,7 +371,7 @@
               <v-card elevation="3">
                 <v-card-title class="d-flex align-center">
                   <img
-                    src="@footage/记录.svg"
+                    src="/footage/记录.svg"
                     alt="record"
                     style="width: 24px; height: 24px; margin-right: 8px"
                   />
@@ -416,7 +416,7 @@
                 <v-card-title class="d-flex align-center justify-space-between">
                   <div class="d-flex align-center">
                     <img
-                      src="@footage/城市.svg"
+                      src="/footage/城市.svg"
                       alt="city"
                       style="width: 26px; height: 26px; margin-right: 8px"
                     />
@@ -506,7 +506,7 @@
                               <img
                                 v-for="n in city.houseCount"
                                 :key="n"
-                                src="@footage/民宿.svg"
+                                src="/footage/民宿.svg"
                                 alt="house"
                                 style="
                                   width: 16px;
@@ -516,7 +516,7 @@
                               />
                               <img
                                 v-if="city.hasResort"
-                                src="@footage/度假村.svg"
+                                src="/footage/度假村.svg"
                                 alt="resort"
                                 style="width: 18px; height: 18px"
                               />
@@ -577,7 +577,7 @@
                               @click="buyLand(city)"
                             >
                               <img
-                                src="@footage/空地.svg"
+                                src="/footage/空地.svg"
                                 alt="land"
                                 style="
                                   width: 16px;
@@ -595,7 +595,7 @@
                               @click="buildHouse(city)"
                             >
                               <img
-                                src="@footage/民宿.svg"
+                                src="/footage/民宿.svg"
                                 alt="house"
                                 style="
                                   width: 16px;
@@ -613,7 +613,7 @@
                               @click="buildResort(city)"
                             >
                               <img
-                                src="@footage/度假村.svg"
+                                src="/footage/度假村.svg"
                                 alt="resort"
                                 style="
                                   width: 16px;
@@ -632,7 +632,7 @@
                               @click="openCollectFeeDialog(city)"
                             >
                               <img
-                                src="@footage/观光费.svg"
+                                src="/footage/观光费.svg"
                                 alt="观光费"
                                 style="
                                   width: 16px;
@@ -655,7 +655,7 @@
                                   variant="outlined"
                                 >
                                   <img
-                                    src="@footage/抵押.svg"
+                                    src="/footage/抵押.svg"
                                     alt="mortgage"
                                     style="
                                       width: 16px;
@@ -683,7 +683,7 @@
                                 >
                                   <template #prepend>
                                     <img
-                                      src="@footage/抵押.svg"
+                                      src="/footage/抵押.svg"
                                       alt=""
                                       style="
                                         width: 18px;
@@ -700,7 +700,7 @@
                                 >
                                   <template #prepend>
                                     <img
-                                      src="@footage/赎回.svg"
+                                      src="/footage/赎回.svg"
                                       alt=""
                                       style="
                                         width: 18px;
@@ -775,7 +775,7 @@
       <v-card v-if="selectedCityForFee">
         <v-card-title class="d-flex align-center">
           <img
-            src="@footage/价格.svg"
+            src="/footage/价格.svg"
             alt="price"
             style="width: 24px; height: 24px; margin-right: 8px"
           />

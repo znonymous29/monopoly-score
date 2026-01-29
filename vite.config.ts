@@ -7,7 +7,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      "@footage": path.resolve(__dirname, "footage"),
     },
   },
   server: {
