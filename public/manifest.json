@@ -1,0 +1,18 @@
+{
+  "name": "大富翁计分板",
+  "short_name": "大富翁",
+  "description": "大富翁游戏计分板应用",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#1976d2",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./footage/城市.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
