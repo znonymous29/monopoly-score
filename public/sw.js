@@ -27,7 +27,7 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       console.log("[SW] 缓存静态资源");
       return cache.addAll(STATIC_ASSETS);
-    }),
+    })
   );
   // 立即激活新的 service worker
   self.skipWaiting();
@@ -40,14 +40,14 @@ self.addEventListener("activate", (event) => {
       return Promise.all(
         cacheNames
           .filter(
-            (name) => name.startsWith("monopoly-score-") && name !== CACHE_NAME,
+            (name) => name.startsWith("monopoly-score-") && name !== CACHE_NAME
           )
           .map((name) => {
             console.log("[SW] 删除旧缓存:", name);
             return caches.delete(name);
-          }),
+          })
       );
-    }),
+    })
   );
   // 立即控制所有客户端
   self.clients.claim();
@@ -57,6 +57,10 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   // 只处理 GET 请求
   if (event.request.method !== "GET") return;
+
+  // 只处理 http/https 协议，跳过 chrome-extension:// 等
+  const url = new URL(event.request.url);
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
@@ -91,6 +95,6 @@ self.addEventListener("fetch", (event) => {
           // 网络请求失败，返回离线页面（如果有的话）
           console.log("[SW] 网络请求失败:", event.request.url);
         });
-    }),
+    })
   );
 });

@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main>
-      <v-container class="py-6" fluid>
+      <v-container fluid>
         <!-- 游戏设置（仅在游戏未开始时显示） -->
         <v-card v-if="!hasActiveGame" elevation="3" class="mb-4">
           <v-card-title class="d-flex align-center justify-space-between">
@@ -141,7 +141,17 @@
                 variant="tonal"
                 class="mb-4"
               >
-                游戏结束，仅剩玩家「{{ winnerPlayer.name }}」有资金，获胜！
+                <div class="d-flex align-center justify-space-between">
+                  <span>游戏结束，仅剩玩家「{{ winnerPlayer.name }}」有资金，获胜！</span>
+                  <v-btn
+                    size="small"
+                    color="success"
+                    variant="flat"
+                    @click="showStatsDialog = true"
+                  >
+                    查看统计
+                  </v-btn>
+                </div>
               </v-alert>
 
               <!-- 撤销/重做与重新开始 -->
@@ -195,11 +205,11 @@
                 <div class="text-caption text-medium-emphasis mb-2">
                   点击玩家卡片切换当前回合
                 </div>
-                <v-slide-y-transition group>
+                <div class="player-grid">
                   <v-card
                     v-for="p in players"
                     :key="p.id"
-                    class="mb-3 player-clickable"
+                    class="player-clickable player-card-compact"
                     :class="{
                       'player-card-current': p.id === currentPlayerId,
                       'player-card-bankrupt': p.bankrupt,
@@ -209,80 +219,80 @@
                     :disabled="p.bankrupt"
                     @click="setCurrentPlayer(p.id)"
                   >
-                    <v-card-text>
-                      <div
-                        class="d-flex align-center justify-space-between mb-2"
-                      >
-                        <div class="d-flex align-center">
-                          <v-avatar size="40" class="mr-3" :color="p.color">
-                            <span class="text-h6 font-weight-bold text-white">
-                              {{ p.name.trim().charAt(0) || "?" }}
-                            </span>
-                          </v-avatar>
-                          <div>
-                            <div class="text-subtitle-1 font-weight-bold">
-                              {{ p.name || "未命名" }}
-                            </div>
-                            <div class="d-flex align-center gap-2 mt-1">
-                              <v-chip
-                                v-if="p.bankrupt"
-                                size="small"
-                                color="error"
-                                variant="tonal"
-                              >
-                                破产
-                              </v-chip>
-                              <v-chip
-                                v-else-if="p.id === currentPlayerId"
-                                size="small"
-                                color="primary"
-                                variant="tonal"
-                              >
-                                当前回合
-                              </v-chip>
-                            </div>
+                    <div class="pa-2">
+                      <div class="d-flex align-center">
+                        <v-avatar size="28" class="mr-2" :color="p.color">
+                          <span class="text-caption font-weight-bold text-white">
+                            {{ p.name.trim().charAt(0) || "?" }}
+                          </span>
+                        </v-avatar>
+                        <div class="flex-grow-1 overflow-hidden">
+                          <div class="text-caption font-weight-bold text-truncate">
+                            {{ p.name || "未命名" }}
+                          </div>
+                          <div
+                            class="text-subtitle-1 font-weight-bold"
+                            :class="{
+                              'text-success': p.cash >= START_MONEY,
+                              'text-warning': p.cash >= 0 && p.cash < START_MONEY,
+                              'text-error': p.cash < 0,
+                            }"
+                          >
+                            ¥{{ p.cash.toLocaleString() }}
                           </div>
                         </div>
-                      </div>
-                      <div class="money-display">
-                        <div class="text-caption text-medium-emphasis mb-1">
-                          现金
-                        </div>
-                        <div
-                          class="text-h4 font-weight-bold"
-                          :class="{
-                            'text-success': p.cash >= START_MONEY,
-                            'text-warning': p.cash >= 0 && p.cash < START_MONEY,
-                            'text-error': p.cash < 0,
-                          }"
+                        <v-chip
+                          v-if="p.bankrupt"
+                          size="x-small"
+                          color="error"
+                          variant="tonal"
+                          class="ml-1"
                         >
-                          ¥{{ p.cash.toLocaleString() }}
-                        </div>
+                          破产
+                        </v-chip>
+                        <v-icon
+                          v-else-if="p.id === currentPlayerId"
+                          icon="mdi-play-circle"
+                          color="primary"
+                          size="small"
+                          class="ml-1"
+                        />
                       </div>
-                    </v-card-text>
+                    </div>
                   </v-card>
-                </v-slide-y-transition>
+                </div>
               </div>
 
               <!-- 资金操作面板 -->
               <v-card elevation="3">
                 <v-card-title class="d-flex align-center">
-                  <v-icon icon="mdi-cash-multiple" class="mr-2" />
+                  <img
+                    src="/footage/价格.svg"
+                    alt="price"
+                    style="width: 24px; height: 24px; margin-right: 8px"
+                  />
                   <span class="text-h6 font-weight-bold">资金操作</span>
                 </v-card-title>
                 <v-divider />
                 <v-card-text>
-                  <v-select
-                    v-model="moneyOperationPlayerId"
-                    :items="players"
-                    item-title="name"
-                    item-value="id"
-                    label="选择玩家"
-                    density="compact"
-                    variant="outlined"
-                    class="mb-3"
-                    :disabled="isGameOver"
-                  />
+                  <!-- 当前玩家显示 -->
+                  <div
+                    v-if="currentPlayer"
+                    class="d-flex align-center mb-3 pa-2 rounded"
+                    :style="{ backgroundColor: currentPlayer.color + '22' }"
+                  >
+                    <v-avatar size="32" :color="currentPlayer.color" class="mr-2">
+                      <span class="text-caption font-weight-bold text-white">
+                        {{ currentPlayer.name.trim().charAt(0) || "?" }}
+                      </span>
+                    </v-avatar>
+                    <span class="text-subtitle-1 font-weight-bold">
+                      {{ currentPlayer.name || "未命名" }}
+                    </span>
+                  </div>
+                  <div v-else class="text-caption text-medium-emphasis mb-3">
+                    请先选择玩家
+                  </div>
 
                   <v-btn
                     block
@@ -290,7 +300,7 @@
                     variant="tonal"
                     class="mb-2"
                     prepend-icon="mdi-home-circle"
-                    :disabled="!moneyOperationPlayerId || isGameOver"
+                    :disabled="!currentPlayerId || isGameOver"
                     @click="passStart"
                   >
                     路过起点 +¥2,000
@@ -302,10 +312,22 @@
                     variant="tonal"
                     class="mb-2"
                     prepend-icon="mdi-trending-down"
-                    :disabled="!moneyOperationPlayerId || isGameOver"
+                    :disabled="!currentPlayerId || isGameOver"
                     @click="housingCrash"
                   >
                     楼市暴跌 -¥1,000
+                  </v-btn>
+
+                  <v-btn
+                    block
+                    color="teal"
+                    variant="tonal"
+                    class="mb-2"
+                    prepend-icon="mdi-account-group"
+                    :disabled="isGameOver"
+                    @click="commonProsperity"
+                  >
+                    共同富裕 +¥1,000
                   </v-btn>
 
                   <v-divider class="my-3" />
@@ -326,7 +348,7 @@
                   </div>
                   <div class="d-flex flex-wrap gap-2 mb-3">
                     <v-btn
-                      v-for="amount in [100, 200, 300, 400, 500, 600]"
+                      v-for="amount in [100, 200, 300, 400, 500, 600,800,1000,1200,1500]"
                       :key="amount"
                       size="small"
                       variant="outlined"
@@ -337,13 +359,13 @@
                     </v-btn>
                   </div>
 
-                  <div class="d-flex flex-column gap-2">
+                  <div class="d-flex gap-2">
                     <v-btn
-                      block
+                      class="flex-grow-1"
                       color="success"
                       variant="outlined"
                       :disabled="
-                        !moneyOperationPlayerId ||
+                        !currentPlayerId ||
                         !customMoneyAmount ||
                         isGameOver
                       "
@@ -352,11 +374,11 @@
                       增加
                     </v-btn>
                     <v-btn
-                      block
+                      class="flex-grow-1"
                       color="error"
                       variant="outlined"
                       :disabled="
-                        !moneyOperationPlayerId ||
+                        !currentPlayerId ||
                         !customMoneyAmount ||
                         isGameOver
                       "
@@ -413,32 +435,51 @@
 
             <v-col cols="12" md="8">
               <v-card elevation="3" class="mb-4">
-                <v-card-title class="d-flex align-center justify-space-between">
-                  <div class="d-flex align-center">
-                    <img
-                      src="/footage/城市.svg"
-                      alt="city"
-                      style="width: 26px; height: 26px; margin-right: 8px"
-                    />
-                    <span class="text-h6 font-weight-bold">城市地产</span>
-                  </div>
-                  <v-chip size="small" color="primary" variant="flat">
-                    点击行内按钮进行购地 / 建房 / 度假村 / 抵押 / 赎回
-                  </v-chip>
-                </v-card-title>
-                <v-divider />
-                <v-card-text>
+                <v-card-title class="d-flex align-center py-2">
+                  <img
+                    src="/footage/城市.svg"
+                    alt="city"
+                    style="width: 22px; height: 22px; margin-right: 6px"
+                  />
+                  <span class="text-subtitle-1 font-weight-bold mr-4">城市地产</span>
                   <v-text-field
                     v-model="cityKeyword"
-                    label="按城市名称或拼音搜索"
+                    placeholder="搜索城市名称或拼音"
                     density="compact"
                     variant="outlined"
                     prepend-inner-icon="mdi-magnify"
-                    class="mb-3"
+                    hide-details
                     clearable
+                    style="max-width: 240px"
                   />
+                  <v-spacer />
+                  <v-btn-toggle
+                    v-model="cityViewMode"
+                    density="compact"
+                    mandatory
+                    color="primary"
+                  >
+                    <v-btn value="grid" size="x-small">
+                      <img
+                        src="/footage/grid.svg"
+                        alt="网格"
+                        style="width: 18px; height: 18px"
+                      />
+                    </v-btn>
+                    <v-btn value="table" size="x-small">
+                      <img
+                        src="/footage/table.svg"
+                        alt="表格"
+                        style="width: 18px; height: 18px"
+                      />
+                    </v-btn>
+                  </v-btn-toggle>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pa-3">
 
-                  <v-table density="compact" class="city-table">
+                  <!-- 表格视图 -->
+                  <v-table v-if="cityViewMode === 'table'" density="compact" class="city-table">
                     <thead>
                       <tr>
                         <th>城市</th>
@@ -745,7 +786,7 @@
                                   @click="buyCityWithFee(city)"
                                 >
                                   <v-list-item-title
-                                    >以观光费购买</v-list-item-title
+                                    >拿来吧你！</v-list-item-title
                                   >
                                 </v-list-item>
                                 <v-list-item
@@ -753,8 +794,24 @@
                                   @click="destroyBuildings(city)"
                                 >
                                   <v-list-item-title
-                                    >破坏建筑</v-list-item-title
+                                    >怪兽来袭！</v-list-item-title
                                   >
+                                </v-list-item>
+                                <v-list-item
+                                  :disabled="!canAngelDescends(city)"
+                                  @click="angelDescends(city)"
+                                >
+                                  <v-list-item-title>
+                                    天使降临
+                                  </v-list-item-title>
+                                </v-list-item>
+                                <v-list-item
+                                  :disabled="!canSwapProperty(city)"
+                                  @click="openSwapDialog(city)"
+                                >
+                                  <v-list-item-title>
+                                    交换房产
+                                  </v-list-item-title>
                                 </v-list-item>
                               </v-list>
                             </v-menu>
@@ -763,6 +820,149 @@
                       </tr>
                     </tbody>
                   </v-table>
+
+                  <!-- 网格视图 -->
+                  <div v-else class="city-grid">
+                    <div
+                      v-for="city in filteredCities"
+                      :key="city.config.name"
+                      class="city-grid-item"
+                      :style="{
+                        borderLeftColor: city.config.color,
+                      }"
+                    >
+                      <!-- 标题行：城市名 + 持有人 + 建筑状态 -->
+                      <div class="d-flex align-center justify-space-between mb-2">
+                        <div class="d-flex align-center">
+                          <span class="text-body-2 font-weight-bold mr-2">
+                            {{ city.config.name }}
+                          </span>
+                          <template v-if="city.ownerId && ownerMap[city.ownerId]">
+                            <v-avatar size="20" :color="ownerMap[city.ownerId].color">
+                              <span style="font-size: 10px; font-weight: bold;">
+                                {{ ownerMap[city.ownerId].name.trim().charAt(0) || "?" }}
+                              </span>
+                            </v-avatar>
+                          </template>
+                        </div>
+                        <div class="d-flex align-center gap-1">
+                          <v-chip
+                            v-if="city.isMortgaged"
+                            size="x-small"
+                            color="orange"
+                            variant="tonal"
+                          >
+                            已抵押
+                          </v-chip>
+                          <img
+                            v-for="n in city.houseCount"
+                            :key="n"
+                            src="/footage/民宿.svg"
+                            alt="house"
+                            style="width: 16px; height: 16px"
+                          />
+                          <img
+                            v-if="city.hasResort"
+                            src="/footage/度假村.svg"
+                            alt="resort"
+                            style="width: 18px; height: 18px"
+                          />
+                        </div>
+                      </div>
+                      <!-- 信息行：观光费 + 操作按钮 -->
+                      <div class="d-flex align-center justify-space-between">
+                        <span class="text-body-2">
+                          <span class="text-medium-emphasis">观光费 </span>
+                          <span class="font-weight-bold">¥{{ calcSightseeingFee(city).toLocaleString() }}</span>
+                          <span v-if="hasMonoColor(city)" class="text-red-accent-2 ml-1">×2</span>
+                        </span>
+                        <div class="d-flex gap-1">
+                          <v-btn
+                            size="x-small"
+                            color="primary"
+                            variant="tonal"
+                            :disabled="!canBuyLand(city)"
+                            @click="buyLand(city)"
+                          >
+                            购地
+                          </v-btn>
+                          <v-btn
+                            size="x-small"
+                            color="green"
+                            variant="tonal"
+                            :disabled="!canBuildHouse(city)"
+                            @click="buildHouse(city)"
+                          >
+                            民宿
+                          </v-btn>
+                          <v-btn
+                            size="x-small"
+                            color="deep-purple"
+                            variant="tonal"
+                            :disabled="!canBuildResort(city)"
+                            @click="buildResort(city)"
+                          >
+                            度假村
+                          </v-btn>
+                          <v-btn
+                            size="x-small"
+                            color="blue"
+                            variant="outlined"
+                            :disabled="!canCollectFee(city)"
+                            @click="openCollectFeeDialog(city)"
+                          >
+                            观光费
+                          </v-btn>
+                          <v-menu location="bottom end" :close-on-content-click="true">
+                            <template #activator="{ props }">
+                              <v-btn
+                                v-bind="props"
+                                size="x-small"
+                                color="orange"
+                                variant="outlined"
+                              >
+                                抵押
+                              </v-btn>
+                            </template>
+                            <v-list density="compact">
+                              <v-list-item :disabled="!canMortgage(city)" @click="mortgageCity(city)">
+                                <v-list-item-title>抵押</v-list-item-title>
+                              </v-list-item>
+                              <v-list-item :disabled="!canRedeem(city)" @click="redeemCity(city)">
+                                <v-list-item-title>赎回</v-list-item-title>
+                              </v-list-item>
+                            </v-list>
+                          </v-menu>
+                          <v-menu location="bottom end" :close-on-content-click="true">
+                            <template #activator="{ props }">
+                              <v-btn
+                                v-bind="props"
+                                size="x-small"
+                                color="purple"
+                                variant="outlined"
+                              >
+                                机会
+                              </v-btn>
+                            </template>
+                            <v-list density="compact">
+                              <v-list-item :disabled="!canBuyWithFee(city)" @click="buyCityWithFee(city)">
+                                <v-list-item-title>拿来吧你！</v-list-item-title>
+                              </v-list-item>
+                              <v-list-item :disabled="!canDestroyBuildings(city)" @click="destroyBuildings(city)">
+                                <v-list-item-title>怪兽来袭！</v-list-item-title>
+                              </v-list-item>
+                              <v-list-item :disabled="!canAngelDescends(city)" @click="angelDescends(city)">
+                                <v-list-item-title>天使降临</v-list-item-title>
+                              </v-list-item>
+                              <v-list-item :disabled="!canSwapProperty(city)" @click="openSwapDialog(city)">
+                                <v-list-item-title>交换房产</v-list-item-title>
+                              </v-list-item>
+                            </v-list>
+                          </v-menu>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -907,6 +1107,186 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 游戏统计对话框 -->
+    <v-dialog v-model="showStatsDialog" max-width="800">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon icon="mdi-chart-bar" class="mr-2" />
+          <span class="text-h6">游戏统计</span>
+        </v-card-title>
+        <v-divider />
+        <v-card-text>
+          <!-- 玩家资产排名 -->
+          <div class="text-subtitle-1 font-weight-bold mb-2">玩家资产排名</div>
+          <v-table density="compact" class="mb-4">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>玩家</th>
+                <th class="text-right">现金</th>
+                <th class="text-right">地产价值</th>
+                <th class="text-right">建筑价值</th>
+                <th class="text-right">总资产</th>
+                <th class="text-center">地产数</th>
+                <th class="text-center">民宿数</th>
+                <th class="text-center">度假村</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in playerFinalAssets" :key="item.player.id">
+                <td>
+                  <v-chip
+                    :color="idx === 0 ? 'amber' : idx === 1 ? 'grey' : idx === 2 ? 'brown' : 'default'"
+                    size="small"
+                    variant="flat"
+                  >
+                    {{ idx + 1 }}
+                  </v-chip>
+                </td>
+                <td>
+                  <div class="d-flex align-center">
+                    <v-avatar size="24" :color="item.player.color" class="mr-2">
+                      <span class="text-caption font-weight-bold">
+                        {{ item.player.name.trim().charAt(0) || "?" }}
+                      </span>
+                    </v-avatar>
+                    {{ item.player.name }}
+                    <v-chip v-if="item.player.bankrupt" size="x-small" color="error" class="ml-2">破产</v-chip>
+                  </div>
+                </td>
+                <td class="text-right">¥{{ item.cash.toLocaleString() }}</td>
+                <td class="text-right">¥{{ item.landValue.toLocaleString() }}</td>
+                <td class="text-right">¥{{ (item.houseValue + item.resortValue).toLocaleString() }}</td>
+                <td class="text-right font-weight-bold">¥{{ item.totalAssets.toLocaleString() }}</td>
+                <td class="text-center">{{ item.propertyCount }}</td>
+                <td class="text-center">{{ item.houseCount }}</td>
+                <td class="text-center">{{ item.resortCount }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+
+          <!-- 玩家间资金流动 -->
+          <div class="text-subtitle-1 font-weight-bold mb-2">玩家间资金流动（观光费）</div>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th>支付方 → 收款方</th>
+                <th v-for="p in players" :key="p.id" class="text-center">
+                  <v-avatar size="20" :color="p.color">
+                    <span style="font-size: 10px; font-weight: bold;">
+                      {{ p.name.trim().charAt(0) || "?" }}
+                    </span>
+                  </v-avatar>
+                </th>
+                <th class="text-right">总支出</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in players" :key="p.id">
+                <td>
+                  <div class="d-flex align-center">
+                    <v-avatar size="20" :color="p.color" class="mr-2">
+                      <span style="font-size: 10px; font-weight: bold;">
+                        {{ p.name.trim().charAt(0) || "?" }}
+                      </span>
+                    </v-avatar>
+                    {{ p.name }}
+                  </div>
+                </td>
+                <td v-for="p2 in players" :key="p2.id" class="text-center">
+                  <template v-if="p.id === p2.id">-</template>
+                  <template v-else>
+                    <span :class="{ 'text-error': transferSummary[p.id]?.[p2.id] > 0 }">
+                      {{ transferSummary[p.id]?.[p2.id] ? `¥${transferSummary[p.id][p2.id].toLocaleString()}` : '-' }}
+                    </span>
+                  </template>
+                </td>
+                <td class="text-right font-weight-bold text-error">
+                  ¥{{ Object.values(transferSummary[p.id] || {}).reduce((a: number, b: number) => a + b, 0).toLocaleString() }}
+                </td>
+              </tr>
+              <tr class="bg-grey-lighten-4">
+                <td class="font-weight-bold">总收入</td>
+                <td v-for="p in players" :key="p.id" class="text-center font-weight-bold text-success">
+                  ¥{{ players.reduce((sum, p2) => sum + (transferSummary[p2.id]?.[p.id] || 0), 0).toLocaleString() }}
+                </td>
+                <td></td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="flat" color="primary" @click="showStatsDialog = false">
+            关闭
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 交换房产对话框 -->
+    <v-dialog v-model="showSwapDialog" max-width="500" persistent>
+      <v-card v-if="swapSourceCity">
+        <v-card-title class="d-flex align-center">
+          <span class="text-h6">交换房产</span>
+        </v-card-title>
+        <v-card-text>
+          <div class="text-body-2 mb-3">
+            将「<strong>{{ swapSourceCity.config.name }}</strong>」与其他玩家的地产交换
+          </div>
+          <v-select
+            v-model="swapTargetCityIndex"
+            :items="swappableTargetCities"
+            item-title="label"
+            item-value="index"
+            label="选择要交换的地产"
+            density="compact"
+            variant="outlined"
+          >
+            <template #item="{ item, props }">
+              <v-list-item v-bind="props">
+                <template #prepend>
+                  <v-avatar size="24" :color="item.raw.color" class="mr-2">
+                    <span class="text-caption text-white">{{
+                      item.raw.ownerInitial
+                    }}</span>
+                  </v-avatar>
+                </template>
+                <template #append>
+                  <span class="text-caption text-medium-emphasis">
+                    {{ item.raw.ownerName }}
+                  </span>
+                </template>
+              </v-list-item>
+            </template>
+          </v-select>
+          <v-alert
+            v-if="swapTargetCityIndex !== null"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mt-3"
+          >
+            交换后，对方将获得「{{ swapSourceCity.config.name }}」，你将获得「{{
+              cities[swapTargetCityIndex]?.config.name
+            }}」。对方无法拒绝此交换。
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="closeSwapDialog"> 取消 </v-btn>
+          <v-btn
+            color="teal"
+            variant="flat"
+            :disabled="swapTargetCityIndex === null"
+            @click="confirmSwapProperty"
+          >
+            确认交换
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
@@ -941,12 +1321,39 @@ interface GameState {
   isGameOver: boolean;
   /** 最近记录（兼容旧存档：可能不存在） */
   logs?: LogItem[];
+  /** 统计数据（兼容旧存档：可能不存在） */
+  cashHistory?: CashRecord[];
+  transferHistory?: TransferRecord[];
+  propertyHistory?: PropertyRecord[];
 }
 
 interface LogItem {
   message: string;
   time: string;
   color: string;
+}
+
+// 统计数据接口
+interface CashRecord {
+  playerId: string;
+  cash: number;
+  timestamp: number;
+}
+
+interface TransferRecord {
+  fromId: string;
+  toId: string;
+  amount: number;
+  reason: string;
+  timestamp: number;
+}
+
+interface PropertyRecord {
+  playerId: string;
+  propertyCount: number;
+  houseCount: number;
+  resortCount: number;
+  timestamp: number;
 }
 
 const LOG_ROW_HEIGHT = 56;
@@ -979,10 +1386,22 @@ const isGameOver = ref(false);
 
 const logs = ref<LogItem[]>([]);
 
+// 统计数据
+const cashHistory = ref<CashRecord[]>([]);
+const transferHistory = ref<TransferRecord[]>([]);
+const propertyHistory = ref<PropertyRecord[]>([]);
+const showStatsDialog = ref(false);
+
 const hasExistingSavedGame = ref(false);
 const canLoadSavedGame = ref(false);
 const showRestartDialog = ref(false);
 
+// 交换房产对话框相关
+const showSwapDialog = ref(false);
+const swapSourceCity = ref<CityState | null>(null);
+const swapTargetCityIndex = ref<number | null>(null);
+
+const cityViewMode = ref<"table" | "grid">("grid");
 const cityKeyword = ref("");
 
 // 收取观光费对话框相关
@@ -995,7 +1414,6 @@ const historyStack = ref<GameState[]>([]);
 const historyIndex = ref(-1);
 
 // 资金操作相关
-const moneyOperationPlayerId = ref<string | null>(null);
 const customMoneyAmount = ref<number | null>(null);
 
 const hasActiveGame = computed(() => players.value.length > 0);
@@ -1036,8 +1454,80 @@ const filteredCities = computed(() => {
   });
 });
 
+// 交换房产：可交换的目标地产（其他玩家拥有的已购买地产）
+const swappableTargetCities = computed(() => {
+  const cp = currentPlayer.value;
+  if (!cp || !swapSourceCity.value) return [];
+  return cities.value
+    .map((city, index) => {
+      const owner = city.ownerId ? ownerMap.value[city.ownerId] : null;
+      return {
+        index,
+        label: city.config.name,
+        color: city.config.color,
+        ownerId: city.ownerId,
+        ownerName: owner?.name || "",
+        ownerInitial: owner?.name.trim().charAt(0) || "?",
+      };
+    })
+    .filter(
+      (item) =>
+        item.ownerId !== null &&
+        item.ownerId !== cp.id && // 不是自己的
+        !cities.value[item.index].isMortgaged, // 没有被抵押
+    );
+});
+
 // 最新在最上（索引 0），向下滚动可查看更早的记录
 const displayLogs = computed(() => [...logs.value].reverse());
+
+// 统计：玩家之间的资金流动汇总
+const transferSummary = computed(() => {
+  const summary: Record<string, Record<string, number>> = {};
+  // 初始化
+  for (const p of players.value) {
+    summary[p.id] = {};
+    for (const p2 of players.value) {
+      if (p.id !== p2.id) {
+        summary[p.id][p2.id] = 0;
+      }
+    }
+  }
+  // 汇总转账记录
+  for (const t of transferHistory.value) {
+    if (summary[t.fromId] && summary[t.fromId][t.toId] !== undefined) {
+      summary[t.fromId][t.toId] += t.amount;
+    }
+  }
+  return summary;
+});
+
+// 统计：每个玩家的最终资产（现金 + 房产价值）
+const playerFinalAssets = computed(() => {
+  return players.value.map((p) => {
+    const ownedCities = cities.value.filter((c) => c.ownerId === p.id);
+    const landValue = ownedCities.reduce((sum, c) => sum + c.config.landPrice, 0);
+    const houseValue = ownedCities.reduce(
+      (sum, c) => sum + c.houseCount * c.config.housePrice,
+      0
+    );
+    const resortValue = ownedCities.reduce(
+      (sum, c) => sum + (c.hasResort ? c.config.resortPrice : 0),
+      0
+    );
+    return {
+      player: p,
+      cash: p.cash,
+      landValue,
+      houseValue,
+      resortValue,
+      totalAssets: p.cash + landValue + houseValue + resortValue,
+      propertyCount: ownedCities.length,
+      houseCount: ownedCities.reduce((sum, c) => sum + c.houseCount, 0),
+      resortCount: ownedCities.filter((c) => c.hasResort).length,
+    };
+  }).sort((a, b) => b.totalAssets - a.totalAssets);
+});
 
 const logVirtualRef = ref<any>(null);
 function scrollLogsToLatest() {
@@ -1069,6 +1559,9 @@ function snapshotGameState(): GameState {
     currentPlayerId: currentPlayerId.value,
     isGameOver: isGameOver.value,
     logs: JSON.parse(JSON.stringify(logs.value)),
+    cashHistory: JSON.parse(JSON.stringify(cashHistory.value)),
+    transferHistory: JSON.parse(JSON.stringify(transferHistory.value)),
+    propertyHistory: JSON.parse(JSON.stringify(propertyHistory.value)),
   };
 }
 
@@ -1110,6 +1603,10 @@ function restoreGameState(state: GameState) {
   currentPlayerId.value = state.currentPlayerId;
   isGameOver.value = state.isGameOver;
   logs.value = JSON.parse(JSON.stringify(state.logs ?? []));
+  // 恢复统计数据（兼容旧存档）
+  cashHistory.value = JSON.parse(JSON.stringify(state.cashHistory ?? []));
+  transferHistory.value = JSON.parse(JSON.stringify(state.transferHistory ?? []));
+  propertyHistory.value = JSON.parse(JSON.stringify(state.propertyHistory ?? []));
 }
 
 function persistState() {
@@ -1160,6 +1657,8 @@ function startNewGameFromEditable() {
   historyStack.value = [];
   historyIndex.value = -1;
   saveStateToHistory();
+  // 初始化统计数据
+  initStats();
   persistState();
 }
 
@@ -1187,6 +1686,53 @@ function addLog(message: string, color: string = "primary") {
     time: new Date().toLocaleTimeString(),
   });
   void nextTick(() => scrollLogsToLatest());
+}
+
+// 记录所有玩家当前现金状态
+function recordCashSnapshot() {
+  const timestamp = Date.now();
+  for (const player of players.value) {
+    cashHistory.value.push({
+      playerId: player.id,
+      cash: player.cash,
+      timestamp,
+    });
+  }
+}
+
+// 记录资金转移
+function recordTransfer(fromId: string, toId: string, amount: number, reason: string) {
+  transferHistory.value.push({
+    fromId,
+    toId,
+    amount,
+    reason,
+    timestamp: Date.now(),
+  });
+}
+
+// 记录房产快照
+function recordPropertySnapshot() {
+  const timestamp = Date.now();
+  for (const player of players.value) {
+    const ownedCities = cities.value.filter((c) => c.ownerId === player.id);
+    propertyHistory.value.push({
+      playerId: player.id,
+      propertyCount: ownedCities.length,
+      houseCount: ownedCities.reduce((sum, c) => sum + c.houseCount, 0),
+      resortCount: ownedCities.filter((c) => c.hasResort).length,
+      timestamp,
+    });
+  }
+}
+
+// 初始化统计数据
+function initStats() {
+  cashHistory.value = [];
+  transferHistory.value = [];
+  propertyHistory.value = [];
+  recordCashSnapshot();
+  recordPropertySnapshot();
 }
 
 function buildingStageText(city: CityState): string {
@@ -1289,6 +1835,8 @@ function buyLand(city: CityState) {
   saveStateToHistory();
   cp.cash -= city.config.landPrice;
   city.ownerId = cp.id;
+  recordCashSnapshot();
+  recordPropertySnapshot();
   addLog(
     `玩家「${cp.name}」以 ¥${city.config.landPrice.toLocaleString()} 购买了「${city.config.name}」空地。`,
     "primary",
@@ -1304,6 +1852,8 @@ function buildHouse(city: CityState) {
   saveStateToHistory();
   cp.cash -= city.config.housePrice;
   city.houseCount += 1;
+  recordCashSnapshot();
+  recordPropertySnapshot();
   addLog(
     `玩家「${cp.name}」在「${city.config.name}」新建 1 间民宿（当前共 ${city.houseCount} 间），花费 ¥${city.config.housePrice.toLocaleString()}。`,
     "green",
@@ -1319,6 +1869,8 @@ function buildResort(city: CityState) {
   saveStateToHistory();
   cp.cash -= city.config.resortPrice;
   city.hasResort = true;
+  recordCashSnapshot();
+  recordPropertySnapshot();
   addLog(
     `玩家「${cp.name}」在「${city.config.name}」建成度假村，花费 ¥${city.config.resortPrice.toLocaleString()}。`,
     "deep-purple",
@@ -1472,6 +2024,9 @@ function confirmCollectFee() {
   saveStateToHistory();
   visitor.cash -= fee;
   owner.cash += fee;
+  // 记录统计
+  recordTransfer(visitor.id, owner.id, fee, `观光费(${city.config.name})`);
+  recordCashSnapshot();
   addLog(
     `玩家「${visitor.name}」在「${city.config.name}」支付观光费 ¥${fee.toLocaleString()} 给玩家「${owner.name}」。`,
     "primary",
@@ -1485,10 +2040,8 @@ function confirmCollectFee() {
 
 // 资金操作函数
 function passStart() {
-  if (!moneyOperationPlayerId.value || isGameOver.value) return;
-  const player = players.value.find(
-    (p) => p.id === moneyOperationPlayerId.value,
-  );
+  if (!currentPlayerId.value || isGameOver.value) return;
+  const player = players.value.find((p) => p.id === currentPlayerId.value);
   if (!player || player.bankrupt) return;
   saveStateToHistory();
   player.cash += 2000;
@@ -1498,10 +2051,8 @@ function passStart() {
 }
 
 function housingCrash() {
-  if (!moneyOperationPlayerId.value || isGameOver.value) return;
-  const player = players.value.find(
-    (p) => p.id === moneyOperationPlayerId.value,
-  );
+  if (!currentPlayerId.value || isGameOver.value) return;
+  const player = players.value.find((p) => p.id === currentPlayerId.value);
   if (!player || player.bankrupt) return;
   saveStateToHistory();
   player.cash -= 1000;
@@ -1510,16 +2061,127 @@ function housingCrash() {
   persistState();
 }
 
-function addCustomMoney() {
-  if (
-    !moneyOperationPlayerId.value ||
-    !customMoneyAmount.value ||
-    isGameOver.value
-  )
-    return;
-  const player = players.value.find(
-    (p) => p.id === moneyOperationPlayerId.value,
+function commonProsperity() {
+  if (isGameOver.value) return;
+  saveStateToHistory();
+  const activePlayers = players.value.filter((p) => !p.bankrupt);
+  for (const player of activePlayers) {
+    player.cash += 1000;
+  }
+  const names = activePlayers.map((p) => `「${p.name}」`).join("、");
+  addLog(`【共同富裕】所有玩家 ${names} 各获得 ¥1,000。`, "teal");
+  persistState();
+}
+
+// 天使降临：判断是否可以执行（该地产已被购买且同色地产有可升级的）
+function canAngelDescends(city: CityState): boolean {
+  if (isGameOver.value) return false;
+  if (!city.ownerId) return false;
+  // 检查同色地产是否有可升级的
+  const sameColorCities = cities.value.filter(
+    (c) => c.ownerId !== null && c.config.color === city.config.color,
   );
+  return sameColorCities.some((c) => !c.hasResort);
+}
+
+// 天使降临：执行升级
+function angelDescends(city: CityState) {
+  if (!canAngelDescends(city)) return;
+
+  const targetColor = city.config.color;
+  const sameColorCities = cities.value.filter(
+    (c) => c.ownerId !== null && c.config.color === targetColor,
+  );
+
+  saveStateToHistory();
+
+  const upgradedCities: string[] = [];
+
+  for (const c of sameColorCities) {
+    // 跳过已满的地产（度假村）
+    if (c.hasResort) continue;
+
+    if (c.houseCount < 3) {
+      // 民宿未满，加一间民宿
+      c.houseCount++;
+      upgradedCities.push(`${c.config.name}(+1民宿)`);
+    } else {
+      // 民宿满了，建度假村
+      c.hasResort = true;
+      upgradedCities.push(`${c.config.name}(+度假村)`);
+    }
+  }
+
+  if (upgradedCities.length > 0) {
+    addLog(`【天使降临】同色地产升级：${upgradedCities.join("、")}`, "purple");
+  } else {
+    addLog(`【天使降临】所有同色地产均已达到最高等级。`, "purple");
+  }
+
+  persistState();
+}
+
+// 交换房产：判断是否可以执行（该地产是当前玩家的且未抵押，且有其他玩家的地产可交换）
+function canSwapProperty(city: CityState): boolean {
+  if (isGameOver.value) return false;
+  const cp = ensureCurrentPlayer();
+  if (!cp) return false;
+  if (!city.ownerId || city.ownerId !== cp.id) return false; // 必须是自己的
+  if (city.isMortgaged) return false; // 不能是抵押状态
+  // 检查是否有其他玩家的地产可交换
+  return cities.value.some(
+    (c) => c.ownerId !== null && c.ownerId !== cp.id && !c.isMortgaged,
+  );
+}
+
+// 交换房产：打开对话框
+function openSwapDialog(city: CityState) {
+  if (!canSwapProperty(city)) return;
+  swapSourceCity.value = city;
+  swapTargetCityIndex.value = null;
+  showSwapDialog.value = true;
+}
+
+// 交换房产：关闭对话框
+function closeSwapDialog() {
+  showSwapDialog.value = false;
+  swapSourceCity.value = null;
+  swapTargetCityIndex.value = null;
+}
+
+// 交换房产：确认执行
+function confirmSwapProperty() {
+  if (!swapSourceCity.value || swapTargetCityIndex.value === null) return;
+  const cp = currentPlayer.value;
+  if (!cp) return;
+
+  const sourceCity = swapSourceCity.value;
+  const targetCity = cities.value[swapTargetCityIndex.value];
+  if (!targetCity || !targetCity.ownerId) return;
+
+  const targetOwner = players.value.find((p) => p.id === targetCity.ownerId);
+  if (!targetOwner) return;
+
+  saveStateToHistory();
+
+  // 交换所有权
+  const tempOwnerId = sourceCity.ownerId;
+  sourceCity.ownerId = targetCity.ownerId;
+  targetCity.ownerId = tempOwnerId;
+
+  addLog(
+    `【交换房产】玩家「${cp.name}」用「${sourceCity.config.name}」与玩家「${targetOwner.name}」的「${targetCity.config.name}」进行了交换。`,
+    "teal",
+  );
+
+  persistState();
+  closeSwapDialog();
+}
+
+function addCustomMoney() {
+  if (!currentPlayerId.value || !customMoneyAmount.value || isGameOver.value)
+    return;
+  const player = players.value.find((p) => p.id === currentPlayerId.value);
   if (!player || player.bankrupt) return;
   saveStateToHistory();
   player.cash += customMoneyAmount.value;
@@ -1532,15 +2194,9 @@ function addCustomMoney() {
 }
 
 function subtractCustomMoney() {
-  if (
-    !moneyOperationPlayerId.value ||
-    !customMoneyAmount.value ||
-    isGameOver.value
-  )
+  if (!currentPlayerId.value || !customMoneyAmount.value || isGameOver.value)
     return;
-  const player = players.value.find(
-    (p) => p.id === moneyOperationPlayerId.value,
-  );
+  const player = players.value.find((p) => p.id === currentPlayerId.value);
   if (!player || player.bankrupt) return;
   saveStateToHistory();
   player.cash -= customMoneyAmount.value;
@@ -1578,7 +2234,7 @@ function buyCityWithFee(city: CityState) {
   // 转移所有权，但保留建筑状态
   city.ownerId = cp.id;
   addLog(
-    `玩家「${cp.name}」以观光费 ¥${fee.toLocaleString()} 的价格从玩家「${oldOwner.name}」手中买下了「${city.config.name}」。`,
+    `【拿来吧你！】玩家「${cp.name}」以 ¥${fee.toLocaleString()} 从玩家「${oldOwner.name}」手中买下了「${city.config.name}」。`,
     "indigo",
   );
   checkBankruptcy();
@@ -1587,46 +2243,31 @@ function buyCityWithFee(city: CityState) {
 
 function canDestroyBuildings(city: CityState): boolean {
   if (isGameOver.value) return false;
-  const cp = ensureCurrentPlayer();
-  if (!cp) return false;
-  if (!city.ownerId || city.ownerId !== cp.id) return false; // 必须是自己的
+  if (!city.ownerId) return false; // 必须有人持有
   if (city.isMortgaged) return false; // 抵押状态不能破坏
   return city.houseCount > 0 || city.hasResort; // 必须有建筑
 }
 
 function destroyBuildings(city: CityState) {
-  const cp = ensureCurrentPlayer();
-  if (!cp) return;
   if (!canDestroyBuildings(city)) return;
+  const owner = players.value.find((p) => p.id === city.ownerId);
+  if (!owner) return;
 
   saveStateToHistory();
-  const hadResort = city.hasResort;
-  const houseCount = city.houseCount;
-  city.hasResort = false;
-  city.houseCount = 0;
 
-  let msg = `玩家「${cp.name}」破坏了「${city.config.name}」的`;
-  if (hadResort) {
-    msg += "度假村";
-    if (houseCount > 0) msg += `和 ${houseCount} 间民宿`;
-  } else {
-    msg += `${houseCount} 间民宿`;
+  let msg = `【怪兽来袭】玩家「${owner.name}」的「${city.config.name}」`;
+  if (city.hasResort) {
+    // 有度假村，拆除度假村
+    city.hasResort = false;
+    msg += "度假村被摧毁了！";
+  } else if (city.houseCount > 0) {
+    // 没有度假村但有民宿，拆除一间民宿
+    city.houseCount--;
+    msg += `1 间民宿被摧毁了！（剩余 ${city.houseCount} 间）`;
   }
-  msg += "。";
   addLog(msg, "red");
   persistState();
 }
-
-// 初始化时设置当前玩家ID到资金操作选择器
-watch(
-  currentPlayerId,
-  (newId) => {
-    if (newId && hasActiveGame.value) {
-      moneyOperationPlayerId.value = newId;
-    }
-  },
-  { immediate: true },
-);
 
 // 注意：移除了自动保存的watch，现在所有操作都手动调用persistState()
 // 这样可以避免撤销/重做时触发不必要的保存
@@ -1647,6 +2288,25 @@ initFromStorage();
   border-radius: 50%;
 }
 
+.city-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+.city-grid-item {
+  padding: 10px 12px;
+  background: rgb(var(--v-theme-surface));
+  border-radius: 6px;
+  border-left: 4px solid;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s;
+}
+
+.city-grid-item:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
 .city-table tbody tr:nth-child(even) {
   background-color: rgba(0, 0, 0, 0.01);
 }
@@ -1663,6 +2323,16 @@ initFromStorage();
 .player-card-current {
   border: 2px solid rgb(var(--v-theme-primary)) !important;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.player-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.player-card-compact {
+  min-height: auto !important;
 }
 
 .player-clickable {
