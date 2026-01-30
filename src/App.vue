@@ -495,6 +495,9 @@
                       <tr
                         v-for="city in filteredCities"
                         :key="city.config.name"
+                        :style="{
+                          background: `linear-gradient(90deg, ${city.config.color}40 0%, ${city.config.color}15 30%, transparent 100%)`,
+                        }"
                       >
                         <td>
                           <div class="d-flex align-center">
@@ -829,6 +832,7 @@
                       class="city-grid-item"
                       :style="{
                         borderLeftColor: city.config.color,
+                        background: `linear-gradient(135deg, ${city.config.color}45 0%, ${city.config.color}18 50%, transparent 100%)`,
                       }"
                     >
                       <!-- 标题行：城市名 + 持有人 + 建筑状态 -->
@@ -2296,19 +2300,24 @@ initFromStorage();
 
 .city-grid-item {
   padding: 10px 12px;
-  background: rgb(var(--v-theme-surface));
-  border-radius: 6px;
+  border-radius: 8px;
   border-left: 4px solid;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: box-shadow 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s, transform 0.2s;
+  backdrop-filter: blur(4px);
 }
 
 .city-grid-item:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
-.city-table tbody tr:nth-child(even) {
-  background-color: rgba(0, 0, 0, 0.01);
+.city-table tbody tr {
+  transition: background 0.2s;
+}
+
+.city-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
 }
 
 .cursor-pointer {
