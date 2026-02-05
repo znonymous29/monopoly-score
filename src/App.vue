@@ -13,18 +13,22 @@
           <v-divider />
           <v-card-text>
             <v-alert type="info" variant="tonal" class="mb-4">
-              设置玩家人数、名字和颜色后，点击「开始游戏」。
+              设置玩家人数、名字和颜色后点击「开始游戏」，或「导入存档」从文件恢复进度。
             </v-alert>
 
-            <v-switch
-              v-model="hasExistingSavedGame"
-              :disabled="!canLoadSavedGame"
-              color="secondary"
-              inset
-              density="compact"
-              class="mb-4"
-              :label="hasExistingSavedGame ? '加载本地存档' : '重新开始新游戏'"
+            <input
+              ref="importFileInputRef"
+              type="file"
+              accept=".json,application/json"
+              class="d-none"
+              @change="onImportFileChange"
             />
+            <div class="d-flex flex-wrap gap-2 mb-4">
+              <v-btn color="primary" @click="onStartGame">开始游戏</v-btn>
+              <v-btn color="secondary" variant="outlined" @click="triggerImportFile">
+                导入存档
+              </v-btn>
+            </div>
 
             <v-text-field
               v-model.number="playerCount"
@@ -120,13 +124,6 @@
               </v-card>
             </v-slide-y-transition>
 
-            <v-btn block color="primary" class="mt-2" @click="onStartGame">
-              {{
-                hasExistingSavedGame && canLoadSavedGame
-                  ? "加载存档"
-                  : "开始游戏"
-              }}
-            </v-btn>
           </v-card-text>
         </v-card>
 
@@ -196,6 +193,13 @@
                       class="btn-icon mr-2"
                     />
                     重新开始游戏
+                  </v-btn>
+                  <v-btn
+                    color="secondary"
+                    variant="outlined"
+                    @click="exportSave"
+                  >
+                    导出存档
                   </v-btn>
                 </v-card-text>
               </v-card>
@@ -1372,11 +1376,20 @@ const colorPresets = [
   "#455A64",
 ];
 
+const defaultPlayerNames = [
+  "小富翁",
+  "大地主",
+  "小财神",
+  "拆迁队长",
+  "地皮大王",
+  "投资狂人",
+];
+
 const playerCount = ref(4);
 const editablePlayers = reactive<Player[]>(
   Array.from({ length: 6 }).map((_, idx) => ({
     id: `P${idx + 1}`,
-    name: `玩家${idx + 1}`,
+    name: defaultPlayerNames[idx] ?? `玩家${idx + 1}`,
     color: colorPresets[idx % colorPresets.length],
     cash: START_MONEY,
     bankrupt: false,
@@ -1396,8 +1409,7 @@ const transferHistory = ref<TransferRecord[]>([]);
 const propertyHistory = ref<PropertyRecord[]>([]);
 const showStatsDialog = ref(false);
 
-const hasExistingSavedGame = ref(false);
-const canLoadSavedGame = ref(false);
+const importFileInputRef = ref<HTMLInputElement | null>(null);
 const showRestartDialog = ref(false);
 
 // 交换房产对话框相关
@@ -1632,16 +1644,9 @@ function loadStateFromStorage(): GameState | null {
 function initFromStorage() {
   const saved = loadStateFromStorage();
   if (saved && saved.players && saved.players.length > 0) {
-    canLoadSavedGame.value = true;
-    hasExistingSavedGame.value = true;
     restoreGameState(saved);
-    // 初始化历史栈，将当前状态作为第一个历史记录
     historyStack.value = [snapshotGameState()];
     historyIndex.value = 0;
-  } else {
-    canLoadSavedGame.value = false;
-    hasExistingSavedGame.value = false;
-    // 不自动开始游戏，等待用户点击开始
   }
 }
 
@@ -1667,20 +1672,51 @@ function startNewGameFromEditable() {
 }
 
 function onStartGame() {
-  if (hasExistingSavedGame.value && canLoadSavedGame.value) {
-    const saved = loadStateFromStorage();
-    if (saved) {
-      restoreGameState(saved);
-      // 初始化历史栈
+  startNewGameFromEditable();
+  addLog("已根据当前设置开始新游戏。", "primary");
+}
+
+function triggerImportFile() {
+  importFileInputRef.value?.click();
+}
+
+function onImportFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const raw = reader.result as string;
+      const parsed = JSON.parse(raw) as GameState;
+      if (!parsed.players?.length || !Array.isArray(parsed.cities)) {
+        throw new Error("无效的存档格式");
+      }
+      restoreGameState(parsed);
       historyStack.value = [snapshotGameState()];
       historyIndex.value = 0;
-      addLog("已从本地存档加载游戏进度。", "primary");
       persistState();
-      return;
+      addLog("已从文件导入存档并恢复游戏进度。", "primary");
+    } catch (e) {
+      console.error(e);
+      alert("导入失败，请选择有效的存档 JSON 文件。");
     }
-  }
-  startNewGameFromEditable();
-  addLog("已根据当前设置重新开始新游戏。", "primary");
+  };
+  reader.readAsText(file, "UTF-8");
+}
+
+function exportSave() {
+  const state = snapshotGameState();
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `大富翁存档-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  addLog("已导出存档到本地文件。", "primary");
 }
 
 function addLog(message: string, color: string = "primary") {
@@ -1933,8 +1969,6 @@ function confirmRestartGame() {
   historyIndex.value = -1;
   logs.value = [];
   localStorage.removeItem(STORAGE_KEY);
-  canLoadSavedGame.value = false;
-  hasExistingSavedGame.value = false;
 }
 
 function checkBankruptcy() {
