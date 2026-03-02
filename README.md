@@ -6,8 +6,7 @@
 
 ## 功能概览
 
-- **单人/多人模式**：支持单人本地游戏，或多人联网游戏（基于 Colyseus）
-- **多人游戏**：房主创建房间并指定人数，分享链接给好友加入；加入后可设置自己的名称和颜色，人齐后房主开启游戏
+- **多人联网游戏**：基于 Colyseus；房主创建房间并指定人数，分享链接给好友加入；加入后可设置自己的名称和颜色，人齐后房主开启游戏
 - **玩家管理**：支持 2-6 名玩家；可配置玩家名称与颜色；起始资金为 10000 元
 - **城市/资产**：内置城市数据；支持购地、建民宿、建度假村、抵押与赎回
 - **观光费计算**：自动计算观光费；同色全持有时支持翻倍逻辑
@@ -47,7 +46,7 @@ pnpm dev
    ```
    服务端默认监听 `ws://localhost:2567`。
 
-2. 启动前端后，在游戏设置中点击「多人游戏」：
+2. 启动前端后，点击「多人游戏」：
    - **创建房间**：指定人数，点击「创建并加入」，复制分享链接发给好友
    - **加入房间**：粘贴房主分享的链接，点击「加入」
 
@@ -71,12 +70,25 @@ pnpm build      # 构建产物到 dist/
 pnpm preview    # 预览构建产物（Vite 默认端口通常为 4173）
 ```
 
-## 部署（GitHub Pages）
+## 部署
+
+### Docker Compose（推荐，前后端同域）
+
+项目根目录执行：
+
+```bash
+docker compose up -d
+```
+
+- 访问 **http://localhost**（或服务器 IP），前端与 Colyseus WebSocket 同域（`/colyseus/` 由 Nginx 反向代理到游戏服务）
+- 相关文件：`docker-compose.yml`、`Dockerfile.gateway`、`Dockerfile.server`、`nginx/default.conf`
+
+### GitHub Pages（仅静态前端）
 
 本项目内置 GitHub Actions 工作流：`/.github/workflows/deploy.yml`。
 
 - **触发方式**：推送到 `main` / `master` 分支后自动构建并发布
-- **发布内容**：上传并部署 `dist/` 到 GitHub Pages
+- **发布内容**：上传并部署 `dist/` 到 GitHub Pages（不含 Colyseus 服务端，仅适合静态展示）
 - **仓库设置**：在 GitHub 仓库 `Settings → Pages` 中将 Source 设为 **GitHub Actions**
 - **访问地址**：部署完成后，可在 Actions 的部署任务输出中看到 Pages URL
 
