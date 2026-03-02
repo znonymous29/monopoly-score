@@ -1964,11 +1964,10 @@ const historyIndex = ref(-1);
 // 资金操作相关
 const customMoneyAmount = ref<number | null>(null);
 
-const hasActiveGame = computed(
-  () =>
-    players.value.length > 0 ||
-    (gameMode.value === "multi" && multi.phase.value === "playing"),
-);
+const hasActiveGame = computed(() => {
+  if (gameMode.value === "multi") return multi.phase.value === "playing";
+  return players.value.length > 0;
+});
 const currentPlayer = computed(
   () => players.value.find((p) => p.id === currentPlayerId.value) || null,
 );
@@ -1979,9 +1978,7 @@ const displayPlayerForActions = computed(() => {
   }
   return currentPlayer.value;
 });
-const bankruptPlayer = computed(
-  () => players.value.find((p) => p.bankrupt) || null,
-);
+
 /** 游戏结束时，唯一还有资金的玩家（获胜者） */
 const winnerPlayer = computed(() => {
   const withCash = players.value.filter((p) => p.cash > 0);
