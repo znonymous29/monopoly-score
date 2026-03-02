@@ -1817,12 +1817,32 @@ function onMultiDisconnect() {
 }
 
 async function copyMultiShareLink() {
+  const text = multiShareLink.value;
+  const fallbackCopy = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      return document.execCommand("copy");
+    } finally {
+      document.body.removeChild(ta);
+    }
+  };
   try {
-    await navigator.clipboard.writeText(multiShareLink.value);
-    alert("链接已复制到剪贴板");
+    if (navigator.clipboard?.writeText)
+      await navigator.clipboard.writeText(text);
+    else if (!fallbackCopy()) throw new Error("unsupported");
   } catch {
-    alert("复制失败，请手动复制");
+    if (!fallbackCopy()) {
+      alert("复制失败，请手动复制");
+      return;
+    }
   }
+  alert("链接已复制到剪贴板");
 }
 
 // 从 URL 解析 roomId 并自动加入
