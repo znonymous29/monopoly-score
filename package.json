@@ -4,10 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "vite --port 6200",
+    "dev:server": "cd server && pnpm start",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@colyseus/schema": "^4.0.15",
+    "@colyseus/sdk": "^0.17.0",
     "vue": "^3.5.0",
     "vuetify": "^3.6.0"
   },

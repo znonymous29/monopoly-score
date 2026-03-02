@@ -6,6 +6,8 @@
 
 ## 功能概览
 
+- **单人/多人模式**：支持单人本地游戏，或多人联网游戏（基于 Colyseus）
+- **多人游戏**：房主创建房间并指定人数，分享链接给好友加入；加入后可设置自己的名称和颜色，人齐后房主开启游戏
 - **玩家管理**：支持 2-6 名玩家；可配置玩家名称与颜色；起始资金为 10000 元
 - **城市/资产**：内置城市数据；支持购地、建民宿、建度假村、抵押与赎回
 - **观光费计算**：自动计算观光费；同色全持有时支持翻倍逻辑
@@ -17,6 +19,7 @@
 
 - **框架**：Vue 3 + Vuetify
 - **构建**：Vite
+- **多人游戏**：Colyseus（服务端在 `server/`）
 - **PWA**：`manifest.json` + 自定义 `sw.js`（Service Worker）
 
 ## 快速开始
@@ -35,6 +38,21 @@ pnpm dev
 
 默认启动在 `http://localhost:6200`。
 
+### 多人游戏
+
+1. 启动 Colyseus 服务端：
+   ```bash
+   pnpm dev:server
+   # 或：cd server && pnpm start
+   ```
+   服务端默认监听 `ws://localhost:2567`。
+
+2. 启动前端后，在游戏设置中点击「多人游戏」：
+   - **创建房间**：指定人数，点击「创建并加入」，复制分享链接发给好友
+   - **加入房间**：粘贴房主分享的链接，点击「加入」
+
+3. 在大厅中，每位玩家可设置自己的名称和颜色；房主在人齐后点击「开始游戏」。
+
 ### 使用 npm（可选）
 
 ```bash
@@ -47,9 +65,10 @@ npm run dev
 ## 常用命令
 
 ```bash
-pnpm dev      # 本地开发（端口 6200）
-pnpm build    # 构建产物到 dist/
-pnpm preview  # 预览构建产物（Vite 默认端口通常为 4173）
+pnpm dev        # 本地开发（端口 6200）
+pnpm dev:server # 启动 Colyseus 多人游戏服务端（端口 2567）
+pnpm build      # 构建产物到 dist/
+pnpm preview    # 预览构建产物（Vite 默认端口通常为 4173）
 ```
 
 ## 部署（GitHub Pages）
@@ -75,8 +94,15 @@ pnpm preview  # 预览构建产物（Vite 默认端口通常为 4173）
 
 ```
 .
+├─ server/               # Colyseus 多人游戏服务端
+│  ├─ src/
+│  │  ├─ rooms/          # 房间逻辑
+│  │  ├─ schema/         # 状态 Schema
+│  │  └─ data/           # 城市配置（与前端同步）
+│  └─ package.json
 ├─ src/
 │  ├─ App.vue            # 主界面
+│  ├─ composables/       # useColyseusRoom 等
 │  ├─ main.ts            # 入口
 │  └─ data/cities.ts     # 城市数据
 ├─ public/

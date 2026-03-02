@@ -1,0 +1,16 @@
+# 后端：Colyseus 游戏服务（Node + tsx 直接跑 TS）
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY server/package.json server/pnpm-lock.yaml* ./server/
+WORKDIR /app/server
+RUN pnpm install --frozen-lockfile || pnpm install
+
+COPY server/ ./
+
+EXPOSE 2567
+
+CMD ["pnpm", "start"]

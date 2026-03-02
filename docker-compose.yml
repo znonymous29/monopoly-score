@@ -1,0 +1,22 @@
+# 大富翁计分板 - Docker Compose 部署
+# 使用：docker compose up -d
+# 访问：http://localhost:80 （前后端同域，WebSocket 走 /colyseus/）
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    expose:
+      - "2567"
+    restart: unless-stopped
