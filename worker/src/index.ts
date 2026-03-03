@@ -19,8 +19,31 @@ function parsePath(url: string): string[] {
   }
 }
 
+/** 跨域头：前端部署在 Pages 等不同域名时需允许跨域 */
+function corsHeaders(request: Request): HeadersInit {
+  const origin = request.headers.get("Origin");
+  return {
+    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+function jsonResponse(body: string, status: number, request: Request): Response {
+  return new Response(body, {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // 预检请求：直接返回 204 + CORS
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
+
     const path = parsePath(request.url);
 
     // POST /create -> 创建房间，初始化 DO 并返回 roomId
@@ -40,10 +63,7 @@ export default {
         body: JSON.stringify({ maxPlayers }),
         headers: { "Content-Type": "application/json" },
       }));
-      return new Response(JSON.stringify({ roomId }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
-      });
+      return jsonResponse(JSON.stringify({ roomId }), 201, request);
     }
 
     // GET /room/:roomId -> WebSocket 升级到该房间 DO
@@ -51,21 +71,22 @@ export default {
       const roomId = path[1];
       const upgrade = request.headers.get("Upgrade");
       if (!upgrade || upgrade.toLowerCase() !== "websocket") {
-        return new Response("Expected WebSocket upgrade", { status: 426 });
+        return jsonResponse("Expected WebSocket upgrade", 426, request);
       }
       const id = env.MONOPOLY_ROOM.idFromName(roomId);
       const stub = env.MONOPOLY_ROOM.get(id);
       return stub.fetch(request);
     }
 
-    return new Response(
+    return jsonResponse(
       JSON.stringify({
         usage: {
           "POST /create?maxPlayers=4": "Create room, returns { roomId }",
           "GET /room/:roomId": "WebSocket connect to room",
         },
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      200,
+      request,
     );
   },
 };

@@ -169,7 +169,7 @@ export function useWorkerRoom() {
   async function createRoom(maxPlayersCount: number) {
     error.value = null;
     connecting.value = true;
-    const { http, ws } = getWorkerBaseUrl();
+    const { http, ws: wsBase } = getWorkerBaseUrl();
     try {
       const res = await fetch(
         `${http}/create?maxPlayers=${Math.min(Math.max(maxPlayersCount, 2), 6)}`,
@@ -177,7 +177,7 @@ export function useWorkerRoom() {
       );
       if (!res.ok) throw new Error("创建房间失败");
       const { roomId } = (await res.json()) as { roomId: string };
-      const wsUrl = `${ws}/room/${roomId}`;
+      const wsUrl = `${wsBase}/room/${roomId}`;
       const socket = new WebSocket(wsUrl);
       ws.value = socket;
       socket.onmessage = (e) => {
@@ -221,8 +221,8 @@ export function useWorkerRoom() {
   async function joinRoom(roomId: string) {
     error.value = null;
     connecting.value = true;
-    const { ws } = getWorkerBaseUrl();
-    const wsUrl = `${ws}/room/${roomId}`;
+    const { ws: wsBase } = getWorkerBaseUrl();
+    const wsUrl = `${wsBase}/room/${roomId}`;
     try {
       const socket = new WebSocket(wsUrl);
       ws.value = socket;
