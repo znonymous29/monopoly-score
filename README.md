@@ -18,7 +18,7 @@
 
 - **框架**：Vue 3 + Vuetify
 - **构建**：Vite
-- **多人游戏**：Colyseus（服务端在 `server/`）
+- **多人游戏**：Colyseus（服务端在 `server/`），或可选 [Cloudflare Workers](#cloudflare-workers-后端)（`worker/`）
 - **PWA**：`manifest.json` + 自定义 `sw.js`（Service Worker）
 
 ## 快速开始
@@ -70,29 +70,106 @@ pnpm build      # 构建产物到 dist/
 pnpm preview    # 预览构建产物（Vite 默认端口通常为 4173）
 ```
 
-## 部署
+## Cloudflare Workers 后端
 
-### Docker Compose（推荐，前后端同域）
+多人房间可改为跑在 Cloudflare Durable Objects 上，无需自建 Node 服务。见 **`worker/README.md`**。
 
-项目根目录执行：
+- 在项目根目录：`cd worker && pnpm install && pnpm dev` 本地调试；`pnpm run cf-deploy` 部署。
+- 前端使用 Worker 时，构建或开发时设置 `VITE_CF_WORKER_URL=https://你的-worker.workers.dev`，与 Colyseus 二选一。
+
+## 部署（如何部署前端和后端）
+
+有两种常用方式：**自建一台机（Docker）** 或 **Cloudflare（Worker + 静态站）**。
+
+---
+
+### 方式一：Docker Compose（一台机搞定前端 + Colyseus 后端）
+
+适合：有自己的服务器或本机，希望前后端同域、一次部署完成。
+
+1. 在项目根目录执行：
+   ```bash
+   docker compose up -d
+   ```
+2. 访问 **http://localhost**（本机）或 **http://你的服务器 IP**。
+3. 前端和 Colyseus 共用同一域名：页面在 `/`，WebSocket 走 `/colyseus/`（由 Nginx 反向代理到 `server` 服务）。
+
+涉及文件：`docker-compose.yml`、`Dockerfile.gateway`、`Dockerfile.server`、`nginx/default.conf`。
+
+---
+
+### 方式二：Cloudflare Workers 后端 + 静态前端
+
+适合：不想维护服务器，用 Cloudflare 做后端和/或前端托管。
+
+**1. 部署后端（Worker）**
 
 ```bash
-docker compose up -d
+cd worker
+pnpm install
+pnpm run cf-deploy
 ```
 
-- 访问 **http://localhost**（或服务器 IP），前端与 Colyseus WebSocket 同域（`/colyseus/` 由 Nginx 反向代理到游戏服务）
-- 相关文件：`docker-compose.yml`、`Dockerfile.gateway`、`Dockerfile.server`、`nginx/default.conf`
+记下部署后的 Worker 地址，例如：`https://monopoly-score.xxx.workers.dev`。
 
-### GitHub Pages（仅静态前端）
+**2. 部署前端**
 
-本项目内置 GitHub Actions 工作流：`/.github/workflows/deploy.yml`。
+- 构建时指定后端地址并打包：
+  ```bash
+  # 在项目根目录
+  VITE_CF_WORKER_URL=https://你的-worker.workers.dev pnpm build
+  ```
+- 将生成的 **`dist/`** 目录部署到任意静态托管：
+  - **Cloudflare Pages**：连 GitHub 仓库，构建命令填 `pnpm build`，环境变量加 `VITE_CF_WORKER_URL=https://你的-worker.workers.dev`，输出目录 `dist`
+  - **GitHub Pages**：在仓库 Settings → Pages 里用 GitHub Actions，在 workflow 里为构建步骤加上环境变量 `VITE_CF_WORKER_URL`，再构建并上传 `dist/`
+  - 其他：Vercel、Netlify、自建 Nginx 等，只要构建时带上 `VITE_CF_WORKER_URL`，然后把 `dist/` 当静态站发布即可
 
-- **触发方式**：推送到 `main` / `master` 分支后自动构建并发布
-- **发布内容**：上传并部署 `dist/` 到 GitHub Pages（不含 Colyseus 服务端，仅适合静态展示）
-- **仓库设置**：在 GitHub 仓库 `Settings → Pages` 中将 Source 设为 **GitHub Actions**
-- **访问地址**：部署完成后，可在 Actions 的部署任务输出中看到 Pages URL
+访问你部署的前端地址即可，多人功能会连到上述 Worker。
 
-> 备注：`vite.config.ts` 已设置 `base: "./"`，便于以相对路径方式在 GitHub Pages/本地预览环境下访问静态资源。
+---
+
+### 前端部署到 Cloudflare Pages
+
+**方式 A：连 GitHub 自动构建（推荐）**
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**。
+2. 选择本仓库，继续。
+3. 配置构建设置：
+   - **Framework preset**：None（或 Vue，若出现）
+   - **Build command**：`pnpm build`（使用 pnpm 时在 **Settings → Environment variables** 添加 `ENABLE_PNPM` = `true`、`NODE_VERSION` = `20`；若用 npm 则改为 `npm run build`）
+   - **Build output directory**：`dist`
+   - **Root directory**：留空（项目根目录）
+4. 若使用 **Worker 作为多人后端**，在 **Settings → Environment variables** 中为生产环境添加：
+   - 变量名：`VITE_CF_WORKER_URL`
+   - 值：`https://你的-worker.workers.dev`（与 worker 部署的地址一致）
+5. 保存并部署。之后每次推送到所选分支会自动重新构建并发布。
+6. 访问分配的子域（如 `xxx.pages.dev`）或绑定自定义域名。
+
+**方式 B：本地上传 dist**
+
+1. 在项目根目录构建：
+   ```bash
+   # 使用 Worker 后端时加上：
+   VITE_CF_WORKER_URL=https://你的-worker.workers.dev pnpm build
+   # 否则直接：
+   pnpm build
+   ```
+2. 在 **Workers & Pages** → **Create** → **Pages** → **Upload assets**，把生成的 **`dist`** 文件夹里的全部内容拖进去（或选 dist 目录）。
+3. 部署完成后得到 `xxx.pages.dev` 地址。
+
+> 若仅做静态展示、不接多人后端，可不设置 `VITE_CF_WORKER_URL`，前端会处于“未连接”状态。
+
+---
+
+### 仅部署静态前端（无多人后端）
+
+若只做静态展示、不需要多人游戏：
+
+- 使用仓库自带的 **GitHub Actions**（`/.github/workflows/deploy.yml`）：推送到 `main`/`master` 后自动构建并发布 `dist/` 到 GitHub Pages。
+- 在仓库 **Settings → Pages** 里将 Source 设为 **GitHub Actions**。
+- 部署完成后在 Actions 里可看到 Pages 的访问地址。
+
+> `vite.config.ts` 已设置 `base: "./"`，适合 GitHub Pages 等相对路径部署。
 
 ## PWA / 离线缓存说明
 

@@ -1656,6 +1656,7 @@
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { CITY_CONFIGS, type CityConfig } from "./data/cities";
 import { useColyseusRoom } from "./composables/useColyseusRoom";
+import { useWorkerRoom } from "./composables/useWorkerRoom";
 
 const START_MONEY = 10000;
 const STORAGE_KEY = "monopoly-scoreboard-v1";
@@ -1744,7 +1745,9 @@ const defaultPlayerNames = [
 
 // 仅保留多人游戏
 const gameMode = ref<"multi">("multi");
-const multi = useColyseusRoom();
+const multi = import.meta.env.VITE_CF_WORKER_URL
+  ? useWorkerRoom()
+  : useColyseusRoom();
 const multiMaxPlayers = ref(4);
 const multiRoomIdInput = ref("");
 const myLobbyName = ref("");

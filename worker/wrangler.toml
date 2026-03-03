@@ -1,0 +1,11 @@
+name = "monopoly-score"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[[durable_objects.bindings]]
+name = "MONOPOLY_ROOM"
+class_name = "MonopolyRoomDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MonopolyRoomDO"]
