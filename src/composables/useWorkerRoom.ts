@@ -113,6 +113,7 @@ function applyState(
 
 export function useWorkerRoom() {
   const ws = shallowRef<WebSocket | null>(null);
+  const room = shallowRef<{ roomId: string } | null>(null);
   const error = ref<string | null>(null);
   const connecting = ref(false);
 
@@ -157,6 +158,7 @@ export function useWorkerRoom() {
 
   function handleClose() {
     ws.value = null;
+    room.value = null;
     phase.value = "disconnected";
     hostSessionId.value = "";
     mySessionId.value = "";
@@ -177,6 +179,7 @@ export function useWorkerRoom() {
       );
       if (!res.ok) throw new Error("创建房间失败");
       const { roomId } = (await res.json()) as { roomId: string };
+      room.value = { roomId };
       const wsUrl = `${wsBase}/room/${roomId}`;
       const socket = new WebSocket(wsUrl);
       ws.value = socket;
@@ -223,6 +226,7 @@ export function useWorkerRoom() {
     connecting.value = true;
     const { ws: wsBase } = getWorkerBaseUrl();
     const wsUrl = `${wsBase}/room/${roomId}`;
+    room.value = { roomId };
     try {
       const socket = new WebSocket(wsUrl);
       ws.value = socket;
@@ -290,7 +294,7 @@ export function useWorkerRoom() {
   }
 
   return {
-    room: shallowRef(null),
+    room,
     error,
     connecting,
     phase,
