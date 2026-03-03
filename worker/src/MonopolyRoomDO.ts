@@ -18,6 +18,7 @@ interface LobbySlot {
   sessionId: string;
   name: string;
   color: string;
+  clientId: string;
 }
 interface Player {
   id: string;
@@ -69,6 +70,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
   private historyIndex = -1;
   private sessions = new Map<WebSocket, string>(); // ws -> sessionId
   private locked = false;
+  private hostClientId: string | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -82,6 +84,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
         sessionId: "",
         name: "",
         color: COLOR_PRESETS[i % COLOR_PRESETS.length],
+        clientId: "",
       };
     }
     return {
@@ -119,6 +122,9 @@ export class MonopolyRoomDO extends DurableObject<Env> {
       return new Response("Expected WebSocket", { status: 426 });
     }
 
+    const url = new URL(request.url);
+    const clientId = url.searchParams.get("clientId") || crypto.randomUUID();
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     server.accept();
@@ -126,15 +132,31 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     const sessionId = crypto.randomUUID();
     this.sessions.set(server, sessionId);
 
-    if (this.state.hostSessionId === "") this.state.hostSessionId = sessionId;
+    if (!this.hostClientId) {
+      this.hostClientId = clientId;
+      this.state.hostSessionId = sessionId;
+    } else if (this.hostClientId === clientId) {
+      // 房主刷新/重连：更新 hostSessionId 到新的会话
+      this.state.hostSessionId = sessionId;
+    }
     if (this.state.phase === "lobby") {
-      for (let i = 0; i < this.state.maxPlayers; i++) {
-        const key = String(i);
-        const slot = this.state.lobbySlots[key]!;
-        if (!slot.sessionId) {
-          slot.sessionId = sessionId;
-          slot.name = `玩家${i + 1}`;
-          break;
+      // 优先重用同一客户端的槽位
+      let slot = Object.values(this.state.lobbySlots).find(
+        (s) => s.clientId === clientId,
+      );
+      if (slot) {
+        slot.sessionId = sessionId;
+      } else {
+        for (let i = 0; i < this.state.maxPlayers; i++) {
+          const key = String(i);
+          const s = this.state.lobbySlots[key]!;
+          if (!s.sessionId) {
+            s.sessionId = sessionId;
+            s.clientId = clientId;
+            if (!s.name) s.name = `玩家${i + 1}`;
+            slot = s;
+            break;
+          }
         }
       }
     }
@@ -239,12 +261,8 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     if (this.state.phase === "lobby") {
       const slot = this.findSlotBySession(sessionId);
       if (slot) {
+        // 仅清空当前会话，保留 clientId 和名称，便于刷新后恢复
         slot.sessionId = "";
-        slot.name = "";
-      }
-      if (this.state.hostSessionId === sessionId) {
-        const first = Object.values(this.state.lobbySlots).find((s) => s.sessionId);
-        this.state.hostSessionId = first?.sessionId ?? "";
       }
       this.broadcast();
       return;

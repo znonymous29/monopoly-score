@@ -47,6 +47,17 @@ interface WorkerState {
   logs: RoomLogItem[];
 }
 
+const LS_CLIENT_ID_KEY = "monopoly:clientId";
+
+function getOrCreateClientId(): string {
+  if (typeof window === "undefined") return crypto.randomUUID();
+  const existing = window.localStorage.getItem(LS_CLIENT_ID_KEY);
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  window.localStorage.setItem(LS_CLIENT_ID_KEY, id);
+  return id;
+}
+
 function getWorkerBaseUrl(): { http: string; ws: string } {
   const u = import.meta.env.VITE_CF_WORKER_URL as string | undefined;
   if (u) {
@@ -114,6 +125,7 @@ function applyState(
 export function useWorkerRoom() {
   const ws = shallowRef<WebSocket | null>(null);
   const room = shallowRef<{ roomId: string } | null>(null);
+  const clientId = getOrCreateClientId();
   const error = ref<string | null>(null);
   const connecting = ref(false);
 
@@ -175,12 +187,17 @@ export function useWorkerRoom() {
     try {
       const res = await fetch(
         `${http}/create?maxPlayers=${Math.min(Math.max(maxPlayersCount, 2), 6)}`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "X-Client-Id": clientId },
+        },
       );
       if (!res.ok) throw new Error("创建房间失败");
       const { roomId } = (await res.json()) as { roomId: string };
       room.value = { roomId };
-      const wsUrl = `${wsBase}/room/${roomId}`;
+      const wsUrl = `${wsBase}/room/${roomId}?clientId=${encodeURIComponent(
+        clientId,
+      )}`;
       const socket = new WebSocket(wsUrl);
       ws.value = socket;
       socket.onmessage = (e) => {
@@ -225,7 +242,9 @@ export function useWorkerRoom() {
     error.value = null;
     connecting.value = true;
     const { ws: wsBase } = getWorkerBaseUrl();
-    const wsUrl = `${wsBase}/room/${roomId}`;
+    const wsUrl = `${wsBase}/room/${roomId}?clientId=${encodeURIComponent(
+      clientId,
+    )}`;
     room.value = { roomId };
     try {
       const socket = new WebSocket(wsUrl);
