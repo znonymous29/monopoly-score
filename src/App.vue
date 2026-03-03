@@ -28,34 +28,32 @@
               >
                 重新连接上局
               </v-btn>
-              <div class="d-flex flex-column gap-4">
-                <div>
-                  <div class="text-subtitle-2 mb-2">创建房间</div>
-                  <div class="d-flex align-center gap-2">
-                    <v-text-field
-                      v-model.number="multiMaxPlayers"
-                      label="玩家人数（2-6）"
-                      type="number"
-                      min="2"
-                      max="6"
-                      density="compact"
-                      variant="outlined"
-                      hide-details
-                      style="max-width: 120px"
-                    />
-                    <v-btn
-                      color="primary"
-                      :loading="multi.connecting.value"
-                      @click="onMultiCreateRoom"
-                    >
-                      创建并加入
-                    </v-btn>
-                  </div>
+              <div class="d-flex flex-column ga-4">
+                <div class="text-subtitle-2 mb-2">创建房间</div>
+                <div class="d-flex align-center ga-1">
+                  <v-text-field
+                    v-model.number="multiMaxPlayers"
+                    label="玩家人数（2-6）"
+                    type="number"
+                    min="2"
+                    max="6"
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                    style="max-width: 140px"
+                  />
+                  <v-btn
+                    color="primary"
+                    :loading="multi.connecting.value"
+                    @click="onMultiCreateRoom"
+                  >
+                    创建并加入
+                  </v-btn>
                 </div>
                 <v-divider />
                 <div>
                   <div class="text-subtitle-2 mb-2">加入房间</div>
-                  <div class="d-flex align-center gap-2 flex-wrap">
+                  <div class="d-flex align-center ga-2 flex-wrap">
                     <v-text-field
                       v-model="multiRoomIdInput"
                       label="房间 ID 或完整链接"
@@ -98,7 +96,7 @@
               <v-alert type="info" variant="tonal" class="mb-3">
                 分享链接给好友加入，人齐后房主可开启游戏：
               </v-alert>
-              <div class="d-flex align-center gap-2 mb-4">
+              <div class="d-flex align-center ga-2 mb-4">
                 <v-text-field
                   :model-value="multiShareLink"
                   readonly
@@ -118,7 +116,7 @@
               <div class="text-caption text-medium-emphasis mb-2">
                 玩家（点击编辑自己的名称和颜色）
               </div>
-              <div class="d-flex flex-wrap gap-2">
+              <div class="d-flex flex-wrap ga-2">
                 <v-card
                   v-for="(slot, idx) in multi.lobbySlots.value.filter(
                     (s) => s.sessionId,
@@ -152,7 +150,7 @@
                       hide-details
                       @update:model-value="onMyLobbyNameChange"
                     />
-                    <div class="d-flex flex-wrap gap-1 mt-2">
+                    <div class="d-flex flex-wrap ga-1 mt-2">
                       <v-avatar
                         v-for="c in colorPresets"
                         :key="c"
@@ -188,7 +186,7 @@
                   </template>
                 </v-card>
               </div>
-              <div class="d-flex gap-2 mt-4">
+              <div class="d-flex ga-2 mt-4">
                 <v-btn
                   v-if="multi.isHost.value"
                   color="primary"
@@ -233,7 +231,7 @@
               class="d-none"
               @change="onImportFileChange"
             />
-            <div class="d-flex flex-wrap gap-2 mb-4 align-center">
+            <div class="d-flex flex-wrap ga-2 mb-4 align-center">
               <v-btn color="primary" @click="onStartGame">开始游戏</v-btn>
               <v-btn
                 color="secondary"
@@ -371,7 +369,7 @@
               <!-- 撤销/重做与重新开始 / 退出游戏（多人时仅房主可重新开始，非房主可退出） -->
               <v-card elevation="3" class="mb-4">
                 <v-card-text
-                  class="d-flex flex-nowrap justify-space-between gap-2"
+                  class="d-flex flex-nowrap justify-space-between ga-2"
                 >
                   <v-btn
                     color="warning"
@@ -532,7 +530,7 @@
                     请先选择玩家
                   </div>
 
-                  <div class="d-flex gap-1 mb-2 fund-action-row">
+                  <div class="d-flex ga-1 mb-2 fund-action-row">
                     <v-btn
                       color="success"
                       variant="tonal"
@@ -584,7 +582,7 @@
                   <div class="text-caption text-medium-emphasis mb-2">
                     快速选择金额
                   </div>
-                  <div class="d-flex flex-wrap gap-2 mb-3">
+                  <div class="d-flex flex-wrap ga-2 mb-3">
                     <v-btn
                       v-for="amount in [
                         100, 200, 300, 400, 500, 600, 800, 1000, 1200, 1500,
@@ -604,7 +602,7 @@
                     </v-btn>
                   </div>
 
-                  <div class="d-flex gap-2">
+                  <div class="d-flex ga-2">
                     <v-btn
                       class="flex-grow-1"
                       color="success"
@@ -860,7 +858,7 @@
                         </td>
                         <td class="text-right">
                           <div
-                            class="d-flex flex-wrap justify-end gap-1 align-center"
+                            class="d-flex flex-wrap justify-end ga-1 align-center"
                           >
                             <v-btn
                               size="x-small"
@@ -1113,7 +1111,7 @@
                             </v-avatar>
                           </template>
                         </div>
-                        <div class="d-flex align-center gap-1">
+                        <div class="d-flex align-center ga-1">
                           <v-chip
                             v-if="city.isMortgaged"
                             size="x-small"
@@ -1152,7 +1150,7 @@
                             >×2</span
                           >
                         </span>
-                        <div class="d-flex gap-1">
+                        <div class="d-flex ga-1">
                           <v-btn
                             size="x-small"
                             color="primary"
@@ -3022,7 +3020,7 @@ initFromStorage();
 .city-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 10px;
+  gap: 5px;
 }
 
 .city-grid-item {
