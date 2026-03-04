@@ -16,6 +16,14 @@ const COLYSEUS_WS = (() => {
 const LS_RECONNECT_TOKEN_KEY = "monopoly:reconnectToken";
 const LS_CLIENT_ID_KEY = "monopoly:clientId";
 
+/** 将地址栏更新为房间分享链接，刷新后可根据 URL 的 roomId 重连或加入 */
+function setShareLinkInUrl(roomId: string) {
+  if (typeof window === "undefined" || !roomId) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("roomId", roomId);
+  window.history.replaceState(null, "", url.pathname + url.search + (url.hash || ""));
+}
+
 function getOrCreateClientId(): string {
   if (typeof window === "undefined") return crypto.randomUUID();
   const existing = window.localStorage.getItem(LS_CLIENT_ID_KEY);
@@ -269,6 +277,8 @@ export function useColyseusRoom() {
       room.value = r;
       mySessionId.value = r.sessionId;
       persistReconnectToken(r);
+      const roomId = (r as unknown as { id?: string }).id ?? "";
+      if (roomId) setShareLinkInUrl(roomId);
       syncFromRoom(r);
       r.onStateChange(() => syncFromRoom(r));
       r.onLeave(() => handleUnexpectedLeave());
@@ -292,6 +302,7 @@ export function useColyseusRoom() {
       room.value = r;
       mySessionId.value = r.sessionId;
       persistReconnectToken(r);
+      setShareLinkInUrl(roomId);
       syncFromRoom(r);
       r.onStateChange(() => syncFromRoom(r));
       r.onLeave(() => handleUnexpectedLeave());
@@ -326,6 +337,8 @@ export function useColyseusRoom() {
       room.value = r;
       mySessionId.value = r.sessionId;
       persistReconnectToken(r);
+      const roomId = (r as unknown as { id?: string }).id ?? "";
+      if (roomId) setShareLinkInUrl(roomId);
       syncFromRoom(r);
       r.onStateChange(() => syncFromRoom(r));
       r.onLeave(() => handleUnexpectedLeave());
@@ -358,6 +371,33 @@ export function useColyseusRoom() {
     transferHistory.value = [];
     canUndo.value = false;
     canRedo.value = false;
+  }
+
+  // 刷新/切后台后回到页面时自动尝试重连，避免掉线无法回房
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      if (phase.value !== "disconnected" || connecting.value) return;
+      const token =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(LS_RECONNECT_TOKEN_KEY)
+          : null;
+      if (token) {
+        reconnect().catch(() => {
+          const roomId =
+            typeof window !== "undefined"
+              ? new URL(window.location.href).searchParams.get("roomId")
+              : null;
+          if (roomId) joinRoom(roomId).catch(() => {});
+        });
+        return;
+      }
+      const roomId =
+        typeof window !== "undefined"
+          ? new URL(window.location.href).searchParams.get("roomId")
+          : null;
+      if (roomId) joinRoom(roomId).catch(() => {});
+    });
   }
 
   return {

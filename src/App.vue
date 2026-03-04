@@ -1625,7 +1625,9 @@ const canReconnect = computed(() => {
 const multiShareLink = computed(() => {
   const r = multi.room.value;
   if (!r) return "";
-  const id = (r as { roomId?: string }).roomId ?? "";
+  // Worker: room.roomId；Colyseus: room.id
+  const id =
+    (r as { roomId?: string }).roomId ?? (r as { id?: string }).id ?? "";
   const base =
     typeof window !== "undefined"
       ? window.location.origin + window.location.pathname
