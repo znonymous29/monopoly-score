@@ -53,6 +53,7 @@ export default {
         Math.max(parseInt(url.searchParams.get("maxPlayers") ?? "4", 10), 2),
         6,
       );
+      const hostClientId = request.headers.get("X-Client-Id") || undefined;
       const roomId = crypto.randomUUID();
       const id = env.MONOPOLY_ROOM.idFromName(roomId);
       const stub = env.MONOPOLY_ROOM.get(id);
@@ -61,7 +62,10 @@ export default {
       await stub.fetch(new Request(initUrl.toString(), {
         method: "POST",
         body: JSON.stringify({ maxPlayers }),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(hostClientId ? { "X-Client-Id": hostClientId } : {}),
+        },
       }));
       return jsonResponse(JSON.stringify({ roomId }), 201, request);
     }

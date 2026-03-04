@@ -114,6 +114,12 @@ export class MonopolyRoomDO extends DurableObject<Env> {
         const body = (await request.json()) as { maxPlayers?: number };
         const max = Math.min(Math.max(Number(body?.maxPlayers) || 4, 2), 6);
         this.state = this.initialState(max);
+         const creatorClientId = request.headers.get("X-Client-Id");
+         if (creatorClientId && !this.hostClientId) {
+           // 记录房主的 clientId，后续无论谁先建立 WebSocket 连接，房主身份都只认这个 clientId
+           this.hostClientId = creatorClientId;
+           this.state.hostSessionId = "";
+         }
         return new Response(JSON.stringify({ ok: true }), {
           headers: { "Content-Type": "application/json" },
         });

@@ -210,134 +210,6 @@
           </v-card>
         </template>
 
-        <!-- 单人模式已移除 -->
-        <v-card v-if="false" elevation="3" class="mb-4">
-          <v-card-title class="d-flex align-center justify-space-between">
-            <span class="text-h6 font-weight-bold">游戏设置</span>
-            <v-chip size="small" color="primary" variant="flat">
-              起始资金：¥{{ START_MONEY.toLocaleString() }}
-            </v-chip>
-          </v-card-title>
-          <v-divider />
-          <v-card-text>
-            <v-alert type="info" variant="tonal" class="mb-4">
-              设置玩家人数、名字和颜色后点击「开始游戏」，或「导入存档」从文件恢复进度。
-            </v-alert>
-
-            <input
-              ref="importFileInputRef"
-              type="file"
-              accept=".json,application/json"
-              class="d-none"
-              @change="onImportFileChange"
-            />
-            <div class="d-flex flex-wrap ga-2 mb-4 align-center">
-              <v-btn color="primary" @click="onStartGame">开始游戏</v-btn>
-              <v-btn
-                color="secondary"
-                variant="outlined"
-                @click="triggerImportFile"
-              >
-                导入存档
-              </v-btn>
-            </div>
-
-            <v-text-field
-              v-model.number="playerCount"
-              label="玩家人数（2-6）"
-              type="number"
-              min="2"
-              max="6"
-              density="compact"
-              variant="outlined"
-              class="mb-3"
-            />
-
-            <div class="text-caption text-medium-emphasis mb-1">
-              玩家信息（可点颜色修改）
-            </div>
-            <v-slide-y-transition group>
-              <v-card
-                v-for="(player, index) in editablePlayers"
-                :key="player.id"
-                class="mb-2"
-                variant="tonal"
-                :color="player.color"
-              >
-                <v-card-subtitle
-                  class="py-1 d-flex align-center justify-space-between"
-                >
-                  <div class="d-flex align-center">
-                    <v-avatar size="28" class="mr-2" :color="player.color">
-                      <span class="text-body-2 font-weight-bold">
-                        {{ player.name.trim().charAt(0) || index + 1 }}
-                      </span>
-                    </v-avatar>
-                    <span class="text-body-2">玩家 {{ index + 1 }}</span>
-                  </div>
-                  <v-menu>
-                    <template #activator="{ props }">
-                      <v-btn
-                        v-bind="props"
-                        size="x-small"
-                        icon="mdi-palette"
-                        variant="text"
-                      />
-                    </template>
-                    <v-card>
-                      <v-card-text class="pa-2">
-                        <v-item-group
-                          v-model="player.color"
-                          mandatory
-                          @update:model-value="
-                            (val: string) => (player.color = val)
-                          "
-                        >
-                          <v-row dense>
-                            <v-col
-                              v-for="c in colorPresets"
-                              :key="c"
-                              cols="3"
-                              class="d-flex justify-center"
-                            >
-                              <v-item
-                                :value="c"
-                                v-slot="{ isSelected, toggle }"
-                              >
-                                <v-avatar
-                                  size="24"
-                                  :color="c"
-                                  class="cursor-pointer"
-                                  @click="toggle"
-                                >
-                                  <v-icon
-                                    v-if="isSelected"
-                                    size="16"
-                                    icon="mdi-check"
-                                  />
-                                </v-avatar>
-                              </v-item>
-                            </v-col>
-                          </v-row>
-                        </v-item-group>
-                      </v-card-text>
-                    </v-card>
-                  </v-menu>
-                </v-card-subtitle>
-                <v-card-text class="pt-0">
-                  <v-text-field
-                    v-model="player.name"
-                    :label="`玩家 ${index + 1} 名字`"
-                    density="compact"
-                    variant="outlined"
-                    hide-details="auto"
-                  />
-                </v-card-text>
-              </v-card>
-            </v-slide-y-transition>
-          </v-card-text>
-        </v-card>
-
         <!-- 游戏进行中的界面 -->
         <div v-if="hasActiveGame">
           <v-row>
@@ -1732,15 +1604,6 @@ const colorPresets = [
   "#0097A7",
 ];
 
-const defaultPlayerNames = [
-  "小富翁",
-  "大地主",
-  "小财神",
-  "拆迁队长",
-  "地皮大王",
-  "投资狂人",
-];
-
 // 仅保留多人游戏
 const gameMode = ref<"multi">("multi");
 const multi = import.meta.env.VITE_CF_WORKER_URL
@@ -1751,8 +1614,9 @@ const multiRoomIdInput = ref("");
 const myLobbyName = ref("");
 const canReconnect = computed(() => {
   if (typeof window === "undefined") return false;
-  const isWorker =
-    !!(import.meta as unknown as { env?: { VITE_CF_WORKER_URL?: string } }).env?.VITE_CF_WORKER_URL;
+  const isWorker = !!(
+    import.meta as unknown as { env?: { VITE_CF_WORKER_URL?: string } }
+  ).env?.VITE_CF_WORKER_URL;
   if (isWorker) return !!localStorage.getItem("monopoly:workerRoomId");
   return !!localStorage.getItem("monopoly:reconnectToken");
 });
@@ -1921,17 +1785,6 @@ watch(
   { immediate: true, deep: true },
 );
 
-const playerCount = ref(4);
-const editablePlayers = reactive<Player[]>(
-  Array.from({ length: 6 }).map((_, idx) => ({
-    id: `P${idx + 1}`,
-    name: defaultPlayerNames[idx] ?? `玩家${idx + 1}`,
-    color: colorPresets[idx % colorPresets.length],
-    cash: START_MONEY,
-    bankrupt: false,
-  })),
-);
-
 const players = ref<Player[]>([]);
 const cities = ref<CityState[]>([]);
 const currentPlayerId = ref<string | null>(null);
@@ -1945,7 +1798,6 @@ const transferHistory = ref<TransferRecord[]>([]);
 const propertyHistory = ref<PropertyRecord[]>([]);
 const showStatsDialog = ref(false);
 
-const importFileInputRef = ref<HTMLInputElement | null>(null);
 const showRestartDialog = ref(false);
 
 // 交换房产对话框相关
@@ -2213,62 +2065,6 @@ function initFromStorage() {
     historyStack.value = [snapshotGameState()];
     historyIndex.value = 0;
   }
-}
-
-function startNewGameFromEditable() {
-  const count = Math.min(Math.max(playerCount.value, 2), 6);
-  const selected = editablePlayers.slice(0, count).map((p) => ({
-    ...p,
-    cash: START_MONEY,
-    bankrupt: false,
-  }));
-  players.value = selected;
-  cities.value = createInitialCities();
-  currentPlayerId.value = selected[0]?.id ?? null;
-  isGameOver.value = false;
-  logs.value = [];
-  // 重置历史栈
-  historyStack.value = [];
-  historyIndex.value = -1;
-  saveStateToHistory();
-  // 初始化统计数据
-  initStats();
-  persistState();
-}
-
-function onStartGame() {
-  startNewGameFromEditable();
-  addLog("已根据当前设置开始新游戏。", "primary");
-}
-
-function triggerImportFile() {
-  importFileInputRef.value?.click();
-}
-
-function onImportFileChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  input.value = "";
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const raw = reader.result as string;
-      const parsed = JSON.parse(raw) as GameState;
-      if (!parsed.players?.length || !Array.isArray(parsed.cities)) {
-        throw new Error("无效的存档格式");
-      }
-      restoreGameState(parsed);
-      historyStack.value = [snapshotGameState()];
-      historyIndex.value = 0;
-      persistState();
-      addLog("已从文件导入存档并恢复游戏进度。", "primary");
-    } catch (e) {
-      console.error(e);
-      alert("导入失败，请选择有效的存档 JSON 文件。");
-    }
-  };
-  reader.readAsText(file, "UTF-8");
 }
 
 function addLog(message: string, color: string = "primary") {
