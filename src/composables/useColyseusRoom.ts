@@ -2,7 +2,8 @@ import { ref, shallowRef, computed } from "vue";
 import { Client, Room } from "@colyseus/sdk";
 
 const COLYSEUS_WS = (() => {
-  const env = (import.meta as unknown as { env?: Record<string, string> }).env ?? {};
+  const env =
+    (import.meta as unknown as { env?: Record<string, string> }).env ?? {};
   const envWs = env.VITE_COLYSEUS_WS;
   if (envWs) return envWs;
   const pathOnly = env.VITE_COLYSEUS_WS_PATH;
@@ -16,12 +17,16 @@ const COLYSEUS_WS = (() => {
 const LS_RECONNECT_TOKEN_KEY = "monopoly:reconnectToken";
 const LS_CLIENT_ID_KEY = "monopoly:clientId";
 
-/** 将地址栏更新为房间分享链接，刷新后可根据 URL 的 roomId 重连或加入 */
+/** 将地址栏更新为房间分享链接（不刷新页面） */
 function setShareLinkInUrl(roomId: string) {
   if (typeof window === "undefined" || !roomId) return;
   const url = new URL(window.location.href);
   url.searchParams.set("roomId", roomId);
-  window.history.replaceState(null, "", url.pathname + url.search + (url.hash || ""));
+  window.history.replaceState(
+    null,
+    "",
+    url.pathname + url.search + (url.hash || ""),
+  );
 }
 
 function getOrCreateClientId(): string {
@@ -121,7 +126,14 @@ export function useColyseusRoom() {
     canRedo.value = (state.canRedo as boolean) ?? false;
 
     const lobbySlotsMap = state.lobbySlots as
-      | { forEach: (cb: (v: { sessionId?: string; name?: string; color?: string }, k: string) => void) => void }
+      | {
+          forEach: (
+            cb: (
+              v: { sessionId?: string; name?: string; color?: string },
+              k: string,
+            ) => void,
+          ) => void;
+        }
       | undefined;
     if (lobbySlotsMap?.forEach) {
       const slots: LobbySlot[] = [];
@@ -200,7 +212,13 @@ export function useColyseusRoom() {
     if (logsRaw != null) {
       const arr = Array.isArray(logsRaw)
         ? (logsRaw as RoomLogItem[])
-        : Array.from((logsRaw as Iterable<{ message?: string; time?: string; color?: string }>) || []);
+        : Array.from(
+            (logsRaw as Iterable<{
+              message?: string;
+              time?: string;
+              color?: string;
+            }>) || [],
+          );
       logs.value = arr.map((l) => ({
         message: String(l?.message ?? ""),
         time: String(l?.time ?? ""),
@@ -277,8 +295,14 @@ export function useColyseusRoom() {
       room.value = r;
       mySessionId.value = r.sessionId;
       persistReconnectToken(r);
-      const roomId = (r as unknown as { id?: string }).id ?? "";
-      if (roomId) setShareLinkInUrl(roomId);
+      // Colyseus Room 对象上实际字段是 roomId（不是 id），这里兼容两种
+      const roomId =
+        (r as unknown as { roomId?: string }).roomId ??
+        (r as unknown as { id?: string }).id ??
+        "";
+      if (roomId && typeof window !== "undefined") {
+        setShareLinkInUrl(roomId);
+      }
       syncFromRoom(r);
       r.onStateChange(() => syncFromRoom(r));
       r.onLeave(() => handleUnexpectedLeave());
@@ -337,7 +361,10 @@ export function useColyseusRoom() {
       room.value = r;
       mySessionId.value = r.sessionId;
       persistReconnectToken(r);
-      const roomId = (r as unknown as { id?: string }).id ?? "";
+      const roomId =
+        (r as unknown as { roomId?: string }).roomId ??
+        (r as unknown as { id?: string }).id ??
+        "";
       if (roomId) setShareLinkInUrl(roomId);
       syncFromRoom(r);
       r.onStateChange(() => syncFromRoom(r));

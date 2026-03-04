@@ -59,9 +59,9 @@ interface WorkerState {
 const LS_CLIENT_ID_KEY = "monopoly:clientId";
 const LS_ROOM_ID_KEY = "monopoly:workerRoomId";
 
-/** 将地址栏更新为房间分享链接（房主创建后 / 加入后均为同一链接） */
+/** 将地址栏更新为房间分享链接（不刷新页面） */
 function setShareLinkInUrl(roomId: string) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !roomId) return;
   const url = new URL(window.location.href);
   url.searchParams.set("roomId", roomId);
   window.history.replaceState(null, "", url.pathname + url.search + (url.hash || ""));
@@ -77,7 +77,8 @@ function getOrCreateClientId(): string {
 }
 
 function getWorkerBaseUrl(): { http: string; ws: string } {
-  const u = import.meta.env.VITE_CF_WORKER_URL as string | undefined;
+  const env = (import.meta as unknown as { env?: Record<string, string> }).env ?? {};
+  const u = env.VITE_CF_WORKER_URL as string | undefined;
   if (u) {
     const base = u.replace(/\/$/, "");
     const ws = base.startsWith("https") ? base.replace(/^https/, "wss") : base.replace(/^http/, "ws");
@@ -262,6 +263,7 @@ export function useWorkerRoom() {
           if (!mySessionId.value) reject(new Error("连接关闭"));
         };
       });
+      // 房主创建成功后仅更新地址栏为分享链接，不整页跳转
       setShareLinkInUrl(roomId);
     } catch (e) {
       error.value = (e as Error).message ?? "连接失败";
@@ -312,6 +314,7 @@ export function useWorkerRoom() {
           if (!mySessionId.value) reject(new Error("连接关闭"));
         };
       });
+      // 加入时仅更新地址栏（不强制刷新），避免多次全页跳转
       setShareLinkInUrl(roomId);
     } catch (e) {
       error.value = (e as Error).message ?? "加入失败";
