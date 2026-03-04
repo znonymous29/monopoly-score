@@ -5,6 +5,7 @@ import {
   Player,
   CityState,
   LogItem,
+  TransferRecord,
 } from "../schema/MonopolyState.js";
 import { CITY_CONFIG_MAP } from "../data/cityConfigs.js";
 
@@ -29,6 +30,13 @@ interface GameStateSnapshot {
     }
   >;
   logs: { message: string; time: string; color: string }[];
+  transferHistory: {
+    fromId: string;
+    toId: string;
+    amount: number;
+    reason: string;
+    timestamp: number;
+  }[];
   currentPlayerId: string;
   isGameOver: boolean;
 }
@@ -382,6 +390,26 @@ export class MonopolyRoom extends Room {
     }
   }
 
+  private addTransfer(
+    fromId: string,
+    toId: string,
+    amount: number,
+    reason: string,
+  ) {
+    if (!fromId || !toId || fromId === toId) return;
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const item = new TransferRecord();
+    item.fromId = fromId;
+    item.toId = toId;
+    item.amount = amount;
+    item.reason = reason;
+    item.timestamp = Date.now();
+    this.state.transferHistory.push(item);
+    if (this.state.transferHistory.length > 1000) {
+      this.state.transferHistory.shift();
+    }
+  }
+
   private snapshotGameState(): GameStateSnapshot {
     const players: GameStateSnapshot["players"] = {};
     this.state.players.forEach((p, id) => {
@@ -408,10 +436,18 @@ export class MonopolyRoom extends Room {
       time: l.time,
       color: l.color,
     }));
+    const transferHistory = Array.from(this.state.transferHistory).map((t) => ({
+      fromId: t.fromId,
+      toId: t.toId,
+      amount: t.amount,
+      reason: t.reason,
+      timestamp: t.timestamp,
+    }));
     return {
       players,
       cities,
       logs,
+      transferHistory,
       currentPlayerId: this.state.currentPlayerId,
       isGameOver: this.state.isGameOver,
     };
@@ -445,6 +481,17 @@ export class MonopolyRoom extends Room {
       L.time = l.time;
       L.color = l.color;
       this.state.logs.push(L);
+    }
+    while (this.state.transferHistory.length > 0)
+      this.state.transferHistory.shift();
+    for (const t of snap.transferHistory) {
+      const T = new TransferRecord();
+      T.fromId = t.fromId;
+      T.toId = t.toId;
+      T.amount = t.amount;
+      T.reason = t.reason;
+      T.timestamp = t.timestamp;
+      this.state.transferHistory.push(T);
     }
     this.state.currentPlayerId = snap.currentPlayerId;
     this.state.isGameOver = snap.isGameOver;
@@ -581,6 +628,12 @@ export class MonopolyRoom extends Room {
     if (amountToPay <= 0) return;
     visitor.cash -= amountToPay;
     owner.cash += amountToPay;
+    this.addTransfer(
+      visitor.id,
+      owner.id,
+      amountToPay,
+      `观光费(${cityName})`,
+    );
     if (amountToPay < fee) {
       visitor.bankrupt = true;
       this.addLog(
@@ -759,6 +812,12 @@ export class MonopolyRoom extends Room {
     if (fee <= 0 || buyer.cash < fee) return;
     buyer.cash -= fee;
     owner.cash += fee;
+    this.addTransfer(
+      buyer.id,
+      owner.id,
+      fee,
+      `拿来吧你(${cityName})`,
+    );
     city.ownerId = client.sessionId;
     this.addLog(
       `【拿来吧你！】玩家「${buyer.name}」以 ¥${fee.toLocaleString()} 从玩家「${owner.name}」手中买下了「${cityName}」。`,

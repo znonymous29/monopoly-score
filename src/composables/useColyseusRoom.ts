@@ -2,9 +2,10 @@ import { ref, shallowRef, computed } from "vue";
 import { Client, Room } from "@colyseus/sdk";
 
 const COLYSEUS_WS = (() => {
-  const envWs = import.meta.env.VITE_COLYSEUS_WS;
+  const env = (import.meta as unknown as { env?: Record<string, string> }).env ?? {};
+  const envWs = env.VITE_COLYSEUS_WS;
   if (envWs) return envWs;
-  const pathOnly = import.meta.env.VITE_COLYSEUS_WS_PATH;
+  const pathOnly = env.VITE_COLYSEUS_WS_PATH;
   if (pathOnly && typeof window !== "undefined")
     return `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}${pathOnly}`;
   if (typeof window !== "undefined")
@@ -55,6 +56,14 @@ export interface RoomLogItem {
   color: string;
 }
 
+export interface TransferRecord {
+  fromId: string;
+  toId: string;
+  amount: number;
+  reason: string;
+  timestamp: number;
+}
+
 export function useColyseusRoom() {
   const client = shallowRef<Client | null>(null);
   const room = shallowRef<Room | null>(null);
@@ -76,6 +85,7 @@ export function useColyseusRoom() {
   const canUndo = ref(false);
   const canRedo = ref(false);
   const logs = ref<RoomLogItem[]>([]);
+  const transferHistory = ref<TransferRecord[]>([]);
 
   function persistReconnectToken(r: Room) {
     if (typeof window === "undefined") return;
@@ -189,6 +199,31 @@ export function useColyseusRoom() {
         color: String(l?.color ?? "primary"),
       }));
     }
+
+    // 同步资金流动历史（服务端维护）
+    const transfersRaw = state.transferHistory;
+    if (transfersRaw != null) {
+      const arr = Array.isArray(transfersRaw)
+        ? (transfersRaw as TransferRecord[])
+        : Array.from(
+            (transfersRaw as Iterable<{
+              fromId?: string;
+              toId?: string;
+              amount?: number;
+              reason?: string;
+              timestamp?: number;
+            }>) || [],
+          );
+      transferHistory.value = arr.map((t) => ({
+        fromId: String(t?.fromId ?? ""),
+        toId: String(t?.toId ?? ""),
+        amount: Number(t?.amount ?? 0),
+        reason: String(t?.reason ?? ""),
+        timestamp: Number(t?.timestamp ?? 0),
+      }));
+    } else {
+      transferHistory.value = [];
+    }
   }
 
   let syncPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -218,6 +253,7 @@ export function useColyseusRoom() {
     players.value = [];
     cities.value = [];
     logs.value = [];
+    transferHistory.value = [];
   }
 
   async function createRoom(maxPlayersCount: number) {
@@ -319,6 +355,7 @@ export function useColyseusRoom() {
     players.value = [];
     cities.value = [];
     logs.value = [];
+    transferHistory.value = [];
     canUndo.value = false;
     canRedo.value = false;
   }
@@ -340,6 +377,7 @@ export function useColyseusRoom() {
     canUndo,
     canRedo,
     logs,
+    transferHistory,
     createRoom,
     joinRoom,
     send,

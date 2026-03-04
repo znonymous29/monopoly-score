@@ -31,6 +31,14 @@ export class LogItem extends Schema {
   @type("string") color: string = "primary";
 }
 
+export class TransferRecord extends Schema {
+  @type("string") fromId: string = "";
+  @type("string") toId: string = "";
+  @type("number") amount: number = 0;
+  @type("string") reason: string = "";
+  @type("number") timestamp: number = 0;
+}
+
 export class MonopolyState extends Schema {
   @type("string") phase: "lobby" | "playing" = "lobby";
   @type("string") hostSessionId: string = "";
@@ -43,4 +51,5 @@ export class MonopolyState extends Schema {
   @type("boolean") canUndo: boolean = false;
   @type("boolean") canRedo: boolean = false;
   @type([ LogItem ]) logs = new ArraySchema<LogItem>();
+  @type([ TransferRecord ]) transferHistory = new ArraySchema<TransferRecord>();
 }

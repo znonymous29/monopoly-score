@@ -33,6 +33,14 @@ export interface RoomLogItem {
   color: string;
 }
 
+export interface TransferRecord {
+  fromId: string;
+  toId: string;
+  amount: number;
+  reason: string;
+  timestamp: number;
+}
+
 interface WorkerState {
   phase: "lobby" | "playing";
   hostSessionId: string;
@@ -45,6 +53,7 @@ interface WorkerState {
   canUndo: boolean;
   canRedo: boolean;
   logs: RoomLogItem[];
+  transferHistory?: TransferRecord[];
 }
 
 const LS_CLIENT_ID_KEY = "monopoly:clientId";
@@ -96,6 +105,7 @@ function applyState(
     players: { value: RoomPlayer[] };
     cities: { value: RoomCityState[] };
     logs: { value: RoomLogItem[] };
+    transferHistory: { value: TransferRecord[] };
   },
 ) {
   target.phase.value = state.phase;
@@ -129,6 +139,14 @@ function applyState(
     time: l.time ?? "",
     color: l.color ?? "primary",
   }));
+
+  target.transferHistory.value = (state.transferHistory ?? []).map((t) => ({
+    fromId: String(t?.fromId ?? ""),
+    toId: String(t?.toId ?? ""),
+    amount: Number(t?.amount ?? 0),
+    reason: String(t?.reason ?? ""),
+    timestamp: Number(t?.timestamp ?? 0),
+  }));
 }
 
 export function useWorkerRoom() {
@@ -152,6 +170,7 @@ export function useWorkerRoom() {
   const canUndo = ref(false);
   const canRedo = ref(false);
   const logs = ref<RoomLogItem[]>([]);
+  const transferHistory = ref<TransferRecord[]>([]);
 
   const target = {
     phase,
@@ -165,6 +184,7 @@ export function useWorkerRoom() {
     players,
     cities,
     logs,
+    transferHistory,
   };
 
   function handleMessage(ev: MessageEvent) {
@@ -187,6 +207,7 @@ export function useWorkerRoom() {
     players.value = [];
     cities.value = [];
     logs.value = [];
+    transferHistory.value = [];
     // 不在这里清除 LS_ROOM_ID_KEY，便于切后台/断网后回来自动重连
   }
 
@@ -359,6 +380,7 @@ export function useWorkerRoom() {
     canUndo,
     canRedo,
     logs,
+    transferHistory,
     createRoom,
     joinRoom,
     send,

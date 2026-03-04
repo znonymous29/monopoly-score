@@ -39,6 +39,13 @@ interface LogItem {
   time: string;
   color: string;
 }
+interface TransferRecord {
+  fromId: string;
+  toId: string;
+  amount: number;
+  reason: string;
+  timestamp: number;
+}
 interface RoomState {
   phase: "lobby" | "playing";
   hostSessionId: string;
@@ -51,11 +58,13 @@ interface RoomState {
   canUndo: boolean;
   canRedo: boolean;
   logs: LogItem[];
+  transferHistory: TransferRecord[];
 }
 interface GameStateSnapshot {
   players: Record<string, { id: string; name: string; color: string; cash: number; bankrupt: boolean }>;
   cities: Record<string, { cityName: string; ownerId: string; houseCount: number; hasResort: boolean; isMortgaged: boolean }>;
   logs: LogItem[];
+  transferHistory: TransferRecord[];
   currentPlayerId: string;
   isGameOver: boolean;
 }
@@ -74,7 +83,6 @@ export class MonopolyRoomDO extends DurableObject<Env> {
   private sessionIdToClientId = new Map<string, string>(); // 用于断线重连：按 clientId 找回 sessionId
   private disconnectedReconnectUntil = new Map<string, number>(); // sessionId -> 允许重连的截止时间戳
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>(); // sessionId -> 超时定时器
-  private locked = false;
   private hostClientId: string | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -104,6 +112,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
       canUndo: false,
       canRedo: false,
       logs: [],
+      transferHistory: [],
     };
   }
 
@@ -346,7 +355,6 @@ export class MonopolyRoomDO extends DurableObject<Env> {
 
   private startGameFromLobby() {
     this.state.phase = "playing";
-    this.locked = true;
     this.state.players = {};
     this.state.cities = {};
     this.state.logs = [];
@@ -391,6 +399,19 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     if (this.state.logs.length > 100) this.state.logs.shift();
   }
 
+  private addTransfer(fromId: string, toId: string, amount: number, reason: string) {
+    if (!fromId || !toId || fromId === toId) return;
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    this.state.transferHistory.push({
+      fromId,
+      toId,
+      amount,
+      reason,
+      timestamp: Date.now(),
+    });
+    if (this.state.transferHistory.length > 1000) this.state.transferHistory.shift();
+  }
+
   private getCityConfig(cityName: string): CityConfig | null {
     return CITY_CONFIG_MAP[cityName] ?? null;
   }
@@ -417,6 +438,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
       players,
       cities,
       logs: [...this.state.logs],
+      transferHistory: [...this.state.transferHistory],
       currentPlayerId: this.state.currentPlayerId,
       isGameOver: this.state.isGameOver,
     };
@@ -427,6 +449,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     this.state.cities = {};
     for (const c of Object.values(snap.cities)) this.state.cities[c.cityName] = { ...c };
     this.state.logs = [...snap.logs];
+    this.state.transferHistory = [...snap.transferHistory];
     this.state.currentPlayerId = snap.currentPlayerId;
     this.state.isGameOver = snap.isGameOver;
   }
@@ -584,6 +607,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     if (amountToPay <= 0) return;
     visitor.cash -= amountToPay;
     owner.cash += amountToPay;
+    this.addTransfer(payerId, city.ownerId, amountToPay, `观光费(${cityName})`);
     if (amountToPay < fee) {
       visitor.bankrupt = true;
       this.addLog(`玩家「${visitor.name}」无法支付「${cityName}」观光费 ¥${fee.toLocaleString()}，已支付全部剩余资金 ¥${amountToPay.toLocaleString()} 给玩家「${owner.name}」，并宣告破产。`, "error");
@@ -645,6 +669,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     if (fee <= 0 || buyer.cash < fee) return;
     buyer.cash -= fee;
     owner.cash += fee;
+    this.addTransfer(sessionId, city.ownerId, fee, `拿来吧你(${cityName})`);
     city.ownerId = sessionId;
     this.addLog(`【拿来吧你！】玩家「${buyer.name}」以 ¥${fee.toLocaleString()} 从玩家「${owner.name}」手中买下了「${cityName}」。`, "indigo");
     this.checkBankruptcy();

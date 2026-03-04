@@ -1606,7 +1606,8 @@ const colorPresets = [
 
 // 仅保留多人游戏
 const gameMode = ref<"multi">("multi");
-const multi = import.meta.env.VITE_CF_WORKER_URL
+const multi = (import.meta as unknown as { env?: { VITE_CF_WORKER_URL?: string } })
+  .env?.VITE_CF_WORKER_URL
   ? useWorkerRoom()
   : useColyseusRoom();
 const multiMaxPlayers = ref(4);
@@ -1893,20 +1894,23 @@ const swappableTargetCities = computed(() => {
 // 最新在最上（索引 0），向下滚动可查看更早的记录
 const displayLogs = computed(() => [...logs.value].reverse());
 
-// 统计：玩家之间的资金流动汇总
+// 统计：玩家之间的资金流动汇总（以服务端/本地 transferHistory 为准，不再解析日志）
 const transferSummary = computed(() => {
   const summary: Record<string, Record<string, number>> = {};
-  // 初始化
   for (const p of players.value) {
     summary[p.id] = {};
     for (const p2 of players.value) {
-      if (p.id !== p2.id) {
-        summary[p.id][p2.id] = 0;
-      }
+      if (p.id !== p2.id) summary[p.id][p2.id] = 0;
     }
   }
-  // 汇总转账记录
-  for (const t of transferHistory.value) {
+
+  const source =
+    gameMode.value === "multi"
+      ? (multi as unknown as { transferHistory?: { value: TransferRecord[] } })
+          .transferHistory?.value ?? []
+      : transferHistory.value;
+
+  for (const t of source) {
     if (summary[t.fromId] && summary[t.fromId][t.toId] !== undefined) {
       summary[t.fromId][t.toId] += t.amount;
     }
