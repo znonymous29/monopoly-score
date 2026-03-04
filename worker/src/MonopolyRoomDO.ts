@@ -62,6 +62,8 @@ interface GameStateSnapshot {
 
 type Env = Record<string, unknown>;
 
+const RECONNECT_GRACE_MS = 60_000; // 断线后 60 秒内可重连，保持同一 sessionId 与游戏状态
+
 export class MonopolyRoomDO extends DurableObject<Env> {
   private state!: RoomState;
   private playerOrder: string[] = [];
@@ -69,6 +71,9 @@ export class MonopolyRoomDO extends DurableObject<Env> {
   private historyStack: GameStateSnapshot[] = [];
   private historyIndex = -1;
   private sessions = new Map<WebSocket, string>(); // ws -> sessionId
+  private sessionIdToClientId = new Map<string, string>(); // 用于断线重连：按 clientId 找回 sessionId
+  private disconnectedReconnectUntil = new Map<string, number>(); // sessionId -> 允许重连的截止时间戳
+  private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>(); // sessionId -> 超时定时器
   private locked = false;
   private hostClientId: string | null = null;
 
@@ -129,25 +134,46 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     const [client, server] = Object.values(pair);
     server.accept();
 
-    const sessionId = crypto.randomUUID();
-    this.sessions.set(server, sessionId);
+    let sessionId: string;
 
-    if (!this.hostClientId) {
-      this.hostClientId = clientId;
-      this.state.hostSessionId = sessionId;
-    } else if (this.hostClientId === clientId) {
-      // 房主刷新/重连：更新 hostSessionId 到新的会话
-      this.state.hostSessionId = sessionId;
-    }
-    if (this.state.phase === "lobby") {
+    if (this.state.phase === "playing") {
+      // 游戏进行中：仅允许断线重连（同一 clientId 且在 60s 内）
+      const now = Date.now();
+      const reconnectingSessionId = [...this.sessionIdToClientId.entries()].find(
+        ([sid, cid]) =>
+          cid === clientId &&
+          this.disconnectedReconnectUntil.has(sid) &&
+          now < (this.disconnectedReconnectUntil.get(sid) ?? 0),
+      )?.[0];
+      if (reconnectingSessionId) {
+        sessionId = reconnectingSessionId;
+        const timer = this.disconnectTimers.get(sessionId);
+        if (timer) clearTimeout(timer);
+        this.disconnectTimers.delete(sessionId);
+        this.disconnectedReconnectUntil.delete(sessionId);
+        this.sessions.set(server, sessionId);
+        if (this.hostClientId === clientId) this.state.hostSessionId = sessionId;
+        this.addLog(`「${this.state.players[sessionId]?.name ?? "某玩家"}」已重新连接。`, "secondary");
+      } else {
+        server.close(4400, "Game in progress, reconnection window expired");
+        return new Response(null, { status: 101, webSocket: client });
+      }
+    } else {
+      // 大厅：新连接，分配新 sessionId
+      sessionId = crypto.randomUUID();
+      this.sessionIdToClientId.set(sessionId, clientId);
+      this.sessions.set(server, sessionId);
+      if (!this.hostClientId) {
+        this.hostClientId = clientId;
+        this.state.hostSessionId = sessionId;
+      } else if (this.hostClientId === clientId) {
+        this.state.hostSessionId = sessionId;
+      }
       // 优先重用同一 clientId 的槽位（断线/切后台后回来仍占原位，不被别人顶替）
-      let slot = Object.values(this.state.lobbySlots).find(
-        (s) => s.clientId === clientId,
-      );
+      let slot = Object.values(this.state.lobbySlots).find((s) => s.clientId === clientId);
       if (slot) {
         slot.sessionId = sessionId;
       } else {
-        // 仅分配“真正空”的槽位：无 session 且无 clientId 或 clientId 正是本人（保留断线者的槽位不给新来的人）
         for (let i = 0; i < this.state.maxPlayers; i++) {
           const key = String(i);
           const s = this.state.lobbySlots[key]!;
@@ -156,7 +182,6 @@ export class MonopolyRoomDO extends DurableObject<Env> {
             s.sessionId = sessionId;
             s.clientId = clientId;
             if (!s.name) s.name = `玩家${i + 1}`;
-            slot = s;
             break;
           }
         }
@@ -171,7 +196,7 @@ export class MonopolyRoomDO extends DurableObject<Env> {
         // ignore parse error
       }
     });
-    server.addEventListener("close", () => this.onLeave(sessionId, server));
+    server.addEventListener("close", () => this.onLeave(server));
 
     this.send(server, { type: "welcome", sessionId });
     this.broadcast();
@@ -258,12 +283,14 @@ export class MonopolyRoomDO extends DurableObject<Env> {
     return Object.values(this.state.lobbySlots).find((s) => s.sessionId === sessionId);
   }
 
-  private onLeave(sessionId: string, ws: WebSocket) {
+  private onLeave(ws: WebSocket) {
+    const sessionId = this.sessions.get(ws);
+    if (!sessionId) return;
     this.sessions.delete(ws);
+
     if (this.state.phase === "lobby") {
       const slot = this.findSlotBySession(sessionId);
       if (slot) {
-        // 仅清空当前会话，保留 clientId 和名称，便于刷新后恢复
         slot.sessionId = "";
       }
       this.broadcast();
@@ -273,23 +300,42 @@ export class MonopolyRoomDO extends DurableObject<Env> {
       const isQuit = this.quitSessions.has(sessionId);
       if (isQuit) this.quitSessions.delete(sessionId);
       const name = this.state.players[sessionId]?.name ?? "某玩家";
-      for (const c of Object.values(this.state.cities)) {
-        if (c.ownerId === sessionId) {
-          c.ownerId = "";
-          c.houseCount = 0;
-          c.hasResort = false;
-          c.isMortgaged = false;
-        }
+
+      if (isQuit) {
+        this.removePlayerFromGame(sessionId, name);
+        return;
       }
-      delete this.state.players[sessionId];
-      this.playerOrder = this.playerOrder.filter((id) => id !== sessionId);
-      if (this.state.currentPlayerId === sessionId) {
-        const next = this.playerOrder.find((id) => this.state.players[id] && !this.state.players[id]!.bankrupt);
-        this.state.currentPlayerId = next ?? "";
-      }
-      this.addLog(`「${name}」退出游戏，其名下地产已重置。`, "secondary");
+      // 非主动退出：60 秒内允许用同一 clientId 重连，保持同一 sessionId 与游戏状态
+      const until = Date.now() + RECONNECT_GRACE_MS;
+      this.disconnectedReconnectUntil.set(sessionId, until);
+      const timer = setTimeout(() => {
+        this.disconnectTimers.delete(sessionId);
+        this.disconnectedReconnectUntil.delete(sessionId);
+        this.removePlayerFromGame(sessionId, this.state.players[sessionId]?.name ?? "某玩家");
+      }, RECONNECT_GRACE_MS);
+      this.disconnectTimers.set(sessionId, timer);
+      this.addLog(`「${name}」暂时断线，${RECONNECT_GRACE_MS / 1000} 秒内可重连。`, "secondary");
       this.broadcast();
     }
+  }
+
+  private removePlayerFromGame(sessionId: string, name: string) {
+    for (const c of Object.values(this.state.cities)) {
+      if (c.ownerId === sessionId) {
+        c.ownerId = "";
+        c.houseCount = 0;
+        c.hasResort = false;
+        c.isMortgaged = false;
+      }
+    }
+    delete this.state.players[sessionId];
+    this.playerOrder = this.playerOrder.filter((id) => id !== sessionId);
+    if (this.state.currentPlayerId === sessionId) {
+      const next = this.playerOrder.find((id) => this.state.players[id] && !this.state.players[id]!.bankrupt);
+      this.state.currentPlayerId = next ?? "";
+    }
+    this.addLog(`「${name}」退出游戏，其名下地产已重置。`, "secondary");
+    this.broadcast();
   }
 
   private startGameFromLobby() {

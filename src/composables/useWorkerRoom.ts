@@ -50,6 +50,14 @@ interface WorkerState {
 const LS_CLIENT_ID_KEY = "monopoly:clientId";
 const LS_ROOM_ID_KEY = "monopoly:workerRoomId";
 
+/** 将地址栏更新为房间分享链接（房主创建后 / 加入后均为同一链接） */
+function setShareLinkInUrl(roomId: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("roomId", roomId);
+  window.history.replaceState(null, "", url.pathname + url.search + (url.hash || ""));
+}
+
 function getOrCreateClientId(): string {
   if (typeof window === "undefined") return crypto.randomUUID();
   const existing = window.localStorage.getItem(LS_CLIENT_ID_KEY);
@@ -233,6 +241,7 @@ export function useWorkerRoom() {
           if (!mySessionId.value) reject(new Error("连接关闭"));
         };
       });
+      setShareLinkInUrl(roomId);
     } catch (e) {
       error.value = (e as Error).message ?? "连接失败";
       throw e;
@@ -282,6 +291,7 @@ export function useWorkerRoom() {
           if (!mySessionId.value) reject(new Error("连接关闭"));
         };
       });
+      setShareLinkInUrl(roomId);
     } catch (e) {
       error.value = (e as Error).message ?? "加入失败";
       throw e;
@@ -297,9 +307,13 @@ export function useWorkerRoom() {
     else s.send(JSON.stringify({ type }));
   }
 
+  /** 断线重连：用本地保存的 roomId 重新 join，服务端会按 clientId 恢复同一 session（大厅同槽位，游戏中 60s 内同角色） */
   async function reconnect() {
-    error.value = "Cloudflare Worker 后端暂不支持断线重连";
-    throw new Error(error.value);
+    error.value = null;
+    if (typeof window === "undefined") throw new Error("当前环境不支持重连");
+    const roomId = window.localStorage.getItem(LS_ROOM_ID_KEY);
+    if (!roomId) throw new Error("无可用重连信息");
+    return joinRoom(roomId);
   }
 
   function disconnect(consented: boolean = true) {

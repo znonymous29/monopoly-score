@@ -1751,6 +1751,9 @@ const multiRoomIdInput = ref("");
 const myLobbyName = ref("");
 const canReconnect = computed(() => {
   if (typeof window === "undefined") return false;
+  const isWorker =
+    !!(import.meta as unknown as { env?: { VITE_CF_WORKER_URL?: string } }).env?.VITE_CF_WORKER_URL;
+  if (isWorker) return !!localStorage.getItem("monopoly:workerRoomId");
   return !!localStorage.getItem("monopoly:reconnectToken");
 });
 
