@@ -48,6 +48,7 @@ interface WorkerState {
 }
 
 const LS_CLIENT_ID_KEY = "monopoly:clientId";
+const LS_ROOM_ID_KEY = "monopoly:workerRoomId";
 
 function getOrCreateClientId(): string {
   if (typeof window === "undefined") return crypto.randomUUID();
@@ -178,6 +179,7 @@ export function useWorkerRoom() {
     players.value = [];
     cities.value = [];
     logs.value = [];
+    // 不在这里清除 LS_ROOM_ID_KEY，便于切后台/断网后回来自动重连
   }
 
   async function createRoom(maxPlayersCount: number) {
@@ -195,6 +197,7 @@ export function useWorkerRoom() {
       if (!res.ok) throw new Error("创建房间失败");
       const { roomId } = (await res.json()) as { roomId: string };
       room.value = { roomId };
+      if (typeof window !== "undefined") window.localStorage.setItem(LS_ROOM_ID_KEY, roomId);
       const wsUrl = `${wsBase}/room/${roomId}?clientId=${encodeURIComponent(
         clientId,
       )}`;
@@ -241,6 +244,7 @@ export function useWorkerRoom() {
   async function joinRoom(roomId: string) {
     error.value = null;
     connecting.value = true;
+    if (typeof window !== "undefined") window.localStorage.setItem(LS_ROOM_ID_KEY, roomId);
     const { ws: wsBase } = getWorkerBaseUrl();
     const wsUrl = `${wsBase}/room/${roomId}?clientId=${encodeURIComponent(
       clientId,
@@ -298,7 +302,8 @@ export function useWorkerRoom() {
     throw new Error(error.value);
   }
 
-  function disconnect(_consented: boolean = true) {
+  function disconnect(consented: boolean = true) {
+    if (consented && typeof window !== "undefined") window.localStorage.removeItem(LS_ROOM_ID_KEY);
     if (ws.value) {
       ws.value.close();
       ws.value = null;
@@ -310,6 +315,17 @@ export function useWorkerRoom() {
 
   function syncFromRoom(_r?: unknown) {
     // Worker 端状态由 onmessage 驱动，无需轮询
+  }
+
+  // 手机切后台后 WebSocket 易被关，回到页面时用保存的 roomId 自动重连，避免会话丢失
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      if (phase.value !== "disconnected" || connecting.value) return;
+      const roomId = typeof window !== "undefined" ? window.localStorage.getItem(LS_ROOM_ID_KEY) : null;
+      if (!roomId) return;
+      joinRoom(roomId).catch(() => {});
+    });
   }
 
   return {

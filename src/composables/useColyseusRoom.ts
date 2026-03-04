@@ -13,6 +13,19 @@ const COLYSEUS_WS = (() => {
 })();
 
 const LS_RECONNECT_TOKEN_KEY = "monopoly:reconnectToken";
+const LS_CLIENT_ID_KEY = "monopoly:clientId";
+
+function getOrCreateClientId(): string {
+  if (typeof window === "undefined") return crypto.randomUUID();
+  const existing = window.localStorage.getItem(LS_CLIENT_ID_KEY);
+  if (existing) return existing;
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36);
+  window.localStorage.setItem(LS_CLIENT_ID_KEY, id);
+  return id;
+}
 
 export interface LobbySlot {
   sessionId: string;
@@ -45,6 +58,7 @@ export interface RoomLogItem {
 export function useColyseusRoom() {
   const client = shallowRef<Client | null>(null);
   const room = shallowRef<Room | null>(null);
+  const clientId = getOrCreateClientId();
   const error = ref<string | null>(null);
   const connecting = ref(false);
 
@@ -214,6 +228,7 @@ export function useColyseusRoom() {
       client.value = c;
       const r = await c.joinOrCreate("monopoly", {
         maxPlayers: Math.min(Math.max(maxPlayersCount, 2), 6),
+        clientId,
       });
       room.value = r;
       mySessionId.value = r.sessionId;
@@ -237,7 +252,7 @@ export function useColyseusRoom() {
     try {
       const c = new Client(COLYSEUS_WS);
       client.value = c;
-      const r = await c.joinById(roomId);
+      const r = await c.joinById(roomId, { clientId });
       room.value = r;
       mySessionId.value = r.sessionId;
       persistReconnectToken(r);

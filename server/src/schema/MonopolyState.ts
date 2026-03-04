@@ -6,6 +6,7 @@ export class LobbySlot extends Schema {
   @type("string") sessionId: string = "";
   @type("string") name: string = "";
   @type("string") color: string = "#1976D2";
+  @type("string") clientId: string = "";
 }
 
 export class Player extends Schema {

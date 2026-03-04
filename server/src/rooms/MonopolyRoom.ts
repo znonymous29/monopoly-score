@@ -52,6 +52,8 @@ export class MonopolyRoom extends Room {
   /** 撤销/重做：游戏状态历史（仅 playing 阶段） */
   private historyStack: GameStateSnapshot[] = [];
   private historyIndex = -1;
+  /** 与 Worker 版本一致：使用 clientId 识别设备/玩家 */
+  private hostClientId: string | null = null;
 
   onCreate(options: { maxPlayers?: number }) {
     this.state.phase = "lobby";
@@ -222,19 +224,49 @@ export class MonopolyRoom extends Room {
   }
 
   onJoin(client: Client, options: Record<string, unknown>) {
-    if (this.state.hostSessionId === "") {
+    const clientId =
+      (options?.clientId as string | undefined) ??
+      (options?.["clientId"] as string | undefined) ??
+      client.sessionId;
+    if (!this.hostClientId) {
+      this.hostClientId = clientId;
+      this.state.hostSessionId = client.sessionId;
+    } else if (this.hostClientId === clientId) {
+      // 房主刷新/重连：更新 hostSessionId
       this.state.hostSessionId = client.sessionId;
     }
     // 游戏进行中：lock() 会阻止新加入；断线重连将复用原 sessionId，无需分配槽位
     if (this.state.phase === "playing") return;
-    // 分配到第一个空槽位
-    for (let i = 0; i < this.state.maxPlayers; i++) {
-      const key = String(i);
-      const slot = this.state.lobbySlots.get(key)!;
-      if (!slot.sessionId) {
-        slot.sessionId = client.sessionId;
-        slot.name = `玩家${i + 1}`;
+    // 优先重用同一 clientId 的槽位，其次分配第一个空槽位
+    let target: LobbySlot | undefined;
+    for (const slot of this.state.lobbySlots.values()) {
+      if ((slot as unknown as { clientId?: string }).clientId === clientId) {
+        target = slot;
         break;
+      }
+    }
+    if (!target) {
+      // 仅分配“真正空”的槽位：无 session 且无 clientId 或 clientId 正是本人（保留断线者的槽位不被顶替）
+      for (let i = 0; i < this.state.maxPlayers; i++) {
+        const key = String(i);
+        const slot = this.state.lobbySlots.get(key)!;
+        const slotClientId = (slot as unknown as { clientId?: string }).clientId;
+        const empty = !slot.sessionId && (!slotClientId || slotClientId === clientId);
+        if (empty) {
+          target = slot;
+          break;
+        }
+      }
+    }
+    if (target) {
+      (target as unknown as { clientId?: string }).clientId = clientId;
+      target.sessionId = client.sessionId;
+      if (!target.name) {
+        // 推断序号
+        const index = Array.from(this.state.lobbySlots.values()).indexOf(
+          target,
+        );
+        target.name = `玩家${index + 1}`;
       }
     }
   }
@@ -243,14 +275,8 @@ export class MonopolyRoom extends Room {
     if (this.state.phase === "lobby") {
       const slot = this.findSlotBySession(client.sessionId);
       if (slot) {
+        // 仅清空当前 sessionId，保留名称和 clientId，便于刷新后恢复
         slot.sessionId = "";
-        slot.name = "";
-      }
-      if (this.state.hostSessionId === client.sessionId) {
-        const first = Array.from(this.state.lobbySlots.values()).find(
-          (s) => s.sessionId,
-        );
-        this.state.hostSessionId = first?.sessionId ?? "";
       }
       return;
     }

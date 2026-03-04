@@ -140,17 +140,19 @@ export class MonopolyRoomDO extends DurableObject<Env> {
       this.state.hostSessionId = sessionId;
     }
     if (this.state.phase === "lobby") {
-      // 优先重用同一客户端的槽位
+      // 优先重用同一 clientId 的槽位（断线/切后台后回来仍占原位，不被别人顶替）
       let slot = Object.values(this.state.lobbySlots).find(
         (s) => s.clientId === clientId,
       );
       if (slot) {
         slot.sessionId = sessionId;
       } else {
+        // 仅分配“真正空”的槽位：无 session 且无 clientId 或 clientId 正是本人（保留断线者的槽位不给新来的人）
         for (let i = 0; i < this.state.maxPlayers; i++) {
           const key = String(i);
           const s = this.state.lobbySlots[key]!;
-          if (!s.sessionId) {
+          const empty = !s.sessionId && (!s.clientId || s.clientId === clientId);
+          if (empty) {
             s.sessionId = sessionId;
             s.clientId = clientId;
             if (!s.name) s.name = `玩家${i + 1}`;
